@@ -162,13 +162,23 @@ namespace AudicaModding
 			downloadCount++;
 			missingSongsIDs.Remove(songID); // remove from local list so we don't queue it up again if Download All is used
 			AddSongItems(songItemMenu); // refresh list
-			MelonCoroutines.Start(SongDownloader.DownloadSong(downloadURL, OnDownloadDone));
+			MelonCoroutines.Start(SongDownloader.DownloadSong(songID, downloadURL, OnDownloadDone));
 		}
 
-		private static void OnDownloadDone()
+		private static void OnDownloadDone(string songID, bool success)
         {
 			downloadCount--;
-			needsSongListRefresh = true;
+			if (success)
+			{
+				needsSongListRefresh = true;
+			}
+			else
+			{
+				KataConfig.I.CreateDebugText($"Unable to download {songID}", new Vector3(0f, -1f, 5f), 5f, null, false, 0.2f);
+				missingSongsIDs.Remove(songID); // remove from local copy
+				SongRequests.missingSongs.Remove(songID); // remove from main list
+			}
+
 		}
 
 		private static void OnDownloadAll()
@@ -184,17 +194,25 @@ namespace AudicaModding
 		private static IEnumerator DownloadAll()
 		{
 			yield return new WaitForSeconds(0.5f);
-			foreach (string id in missingSongsIDs)
+			List<string> missingIDs = new List<string>(missingSongsIDs); // don't risk having missingSongsIDs modified mid-loop
+			foreach (string id in missingIDs)
 			{
 				downloadCount++;
-				MelonCoroutines.Start(SongDownloader.DownloadSong(((Song)SongRequests.missingSongs[id]).download_url, OnDownloadAllComplete));
+				MelonCoroutines.Start(SongDownloader.DownloadSong(id, ((Song)SongRequests.missingSongs[id]).download_url, OnDownloadAllComplete));
 				yield return null;
 			}
 		}
 
-		private static void OnDownloadAllComplete()
+		private static void OnDownloadAllComplete(string songID, bool success)
         {
 			downloadCount--;
+			if (!success)
+			{
+				KataConfig.I.CreateDebugText($"Unable to download {songID}", new Vector3(0f, -1f, 5f), 5f, null, false, 0.2f);
+				missingSongsIDs.Remove(songID); // remove from local copy
+				SongRequests.missingSongs.Remove(songID); // remove from main list
+			}
+
 			if (downloadCount == 0)
 			{
 				SongBrowser.ReloadSongList(false);
