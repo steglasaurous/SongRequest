@@ -95,11 +95,15 @@ namespace AudicaModding
             for (int i = 0; i < SongList.I.songs.Count; i++)
             {
                 SongList.SongData currentSong = SongList.I.songs[i];
-                if ((data.Artist == null || currentSong.artist.ToLowerInvariant().Replace(" ", "").Contains(data.Artist)) &&
-                    (data.Mapper == null || currentSong.author.ToLowerInvariant().Replace(" ", "").Contains(data.Mapper)) &&
-                    (currentSong.title.ToLowerInvariant().Contains(data.Title) ||
-                     currentSong.songID.ToLowerInvariant().Contains(data.Title.Replace(" ", ""))))
-                { 
+                bool hasArtist = data.Artist == null || currentSong.artist.ToLowerInvariant().Replace(" ", "").Contains(data.Artist);
+                bool hasMapper = data.Mapper == null || currentSong.author.ToLowerInvariant().Replace(" ", "").Contains(data.Mapper);
+                bool hasTitle  = currentSong.title.ToLowerInvariant().Contains(data.Title) ||
+                                 currentSong.songID.ToLowerInvariant().Contains(data.Title.Replace(" ", ""));
+
+                if ((hasArtist && hasMapper && hasTitle) ||
+                    (data.Title == "" && data.Artist != null && hasArtist) ||
+                    (data.Title == "" && data.Mapper != null && hasMapper))
+                {
                     if (LookForMatch(data.Title, currentSong.title, ref foundAny, ref foundBetter, ref foundExactMatch))
                     {
                         song = currentSong;
@@ -134,7 +138,7 @@ namespace AudicaModding
             }
 
             // exact matches are best
-            if (matchSongTitle.ToLowerInvariant().Equals(querySongTitle))
+            if (matchSongTitle.ToLowerInvariant().Trim().Equals(querySongTitle))
             {
                 foundExact   = true;
                 newBestMatch = true;
@@ -185,8 +189,18 @@ namespace AudicaModding
         }
         private static void StartWebSearch(QueryData data)
         {
-            webSearchQueryData.Add(data.Title, data);
-            MelonCoroutines.Start(SongDownloader.DoSongWebSearch(data.Title, ProcessWebSearchResult, DifficultyFilter.All));
+            string search = data.Title;
+            if (!string.IsNullOrEmpty(data.Artist))
+            {
+                search = data.Artist;
+            }
+            else if (search == "" && !string.IsNullOrEmpty(data.Mapper))
+            {
+                search = data.Mapper;
+            }
+
+            webSearchQueryData.Add(search, data);
+            MelonCoroutines.Start(SongDownloader.DoSongWebSearch(search, ProcessWebSearchResult, DifficultyFilter.All));
         }
         private static void ProcessWebSearchResult(string query, APISongList response)
         {
@@ -200,10 +214,14 @@ namespace AudicaModding
                 bool foundExact  = false;
                 foreach (Song s in response.songs)
                 {
-                    if ((data.Artist == null || s.artist.ToLowerInvariant().Replace(" ", "").Contains(data.Artist)) &&
-                        (data.Mapper == null || s.author.ToLowerInvariant().Replace(" ", "").Contains(data.Mapper)) &&
-                        (s.title.ToLowerInvariant().Contains(data.Title) ||
-                         s.song_id.ToLowerInvariant().Contains(data.Title.Replace(" ", ""))))
+                    bool hasArtist = data.Artist == null || s.artist.ToLowerInvariant().Replace(" ", "").Contains(data.Artist);
+                    bool hasMapper = data.Mapper == null || s.author.ToLowerInvariant().Replace(" ", "").Contains(data.Mapper);
+                    bool hasTitle  = s.title.ToLowerInvariant().Contains(data.Title) ||
+                                     s.song_id.ToLowerInvariant().Contains(data.Title.Replace(" ", ""));
+
+                    if ((hasArtist && hasMapper && hasTitle) ||
+                        (data.Title == "" && data.Artist != null && hasArtist) ||
+                        (data.Title == "" && data.Mapper != null && hasMapper))
                     {
                         if (LookForMatch(data.Title, s.title, ref foundAny, ref foundBetter, ref foundExact))
                         {
@@ -306,28 +324,30 @@ namespace AudicaModding
         {
             public QueryData(string query)
             {
+                string queryInvariant = query.ToLowerInvariant();
+
                 Artist    = null;
                 Mapper    = null;
-                FullQuery = query.ToLowerInvariant();
+                FullQuery = queryInvariant;
 
-                string modifiedQuery = FullQuery + "-endQuery";
-                if (FullQuery.Contains("-artist"))
+                string modifiedQuery = queryInvariant + "-endQuery";
+                if (queryInvariant.Contains("-artist"))
                 {
                     // match everything from -artist to the next occurrence of -mapper or -endQuery
-                    Match m   = Regex.Match(modifiedQuery, "-artist.*?(?=-mapper|-endQuery)");
-                    FullQuery = FullQuery.Replace(m.Value, ""); // remove artist part from song title
-                    Artist    = m.Value.Replace("-artist", "").Trim();
-                    Artist    = Artist.Replace(" ", "");
+                    Match m        = Regex.Match(modifiedQuery, "-artist.*?(?=-mapper|-endQuery)");
+                    queryInvariant = queryInvariant.Replace(m.Value, ""); // remove artist part from song title
+                    Artist         = m.Value.Replace("-artist", "").Trim();
+                    Artist         = Artist.Replace(" ", "");
                 }
-                if (FullQuery.Contains("-mapper"))
+                if (queryInvariant.Contains("-mapper"))
                 {
                     // match everything from -mapper to the next occurrence of -artist or -endQuery
-                    Match m   = Regex.Match(modifiedQuery, "-mapper.*?(?=-artist|-endQuery)");
-                    FullQuery = FullQuery.Replace(m.Value, ""); // remove mapper part from song title
-                    Mapper    = m.Value.Replace("-mapper", "").Trim();
-                    Mapper    = Mapper.Replace(" ", "");
+                    Match m        = Regex.Match(modifiedQuery, "-mapper.*?(?=-artist|-endQuery)");
+                    queryInvariant = queryInvariant.Replace(m.Value, ""); // remove mapper part from song title
+                    Mapper         = m.Value.Replace("-mapper", "").Trim();
+                    Mapper         = Mapper.Replace(" ", "");
                 }
-                Title = FullQuery.Trim();
+                Title = queryInvariant.Trim();
             }
 
             public string Title { get; private set; }
