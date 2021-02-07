@@ -1,5 +1,8 @@
-using System.Collections.Generic;
 using MelonLoader;
+using MelonLoader.TinyJSON;
+using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 
@@ -18,16 +21,15 @@ namespace AudicaModding
             public const string DownloadLink = null; // Download Link for the Mod.  (Set as null if none)
         }
 
-        public static bool loadComplete             = false;
-        public static bool hasCompatibleSongBrowser = false;
-        public static SongList.SongData selectedSong;
+        internal static bool loadComplete             = false;
+        internal static bool hasCompatibleSongBrowser = false;
+        internal static SongList.SongData selectedSong;
 
-        public static List<string>               requestList  = new List<string>();
-        // actually Dictionary<string, Song>, but can't use that type in case SongBrowser is not available
-        public static Dictionary<string, object> missingSongs = new Dictionary<string, object>();
-        public static List<string>               requestQueue = new List<string>();
+        private static List<string> unprocessedRequests = new List<string>();
+        private static RequestQueue requests            = new RequestQueue();
 
         private static Dictionary<string, QueryData> webSearchQueryData = new Dictionary<string, QueryData>();
+        private static string                        queuePath          = UnityEngine.Application.dataPath + "/../" + "/UserData/" + "SongRequestQueue.json";
 
         public override void OnApplicationStart()
         {
@@ -150,11 +152,11 @@ namespace AudicaModding
         public static void ProcessQueue()
         {
             bool addedAny = false;
-            MelonLogger.Log(requestQueue.Count + " in queue.");
+            MelonLogger.Log(unprocessedRequests.Count + " in queue.");
             
-            if (requestQueue.Count != 0)
+            if (unprocessedRequests.Count != 0)
             {
-                foreach (string str in requestQueue)
+                foreach (string str in unprocessedRequests)
                 {
                     QueryData         data   = new QueryData(str);
                     SongList.SongData result = SearchSong(data, out bool foundExactMatch);
@@ -164,9 +166,9 @@ namespace AudicaModding
                         // if we have web search we want to make sure we prioritize exact matches
                         // over partial local ones
                         MelonLogger.Log("Result: " + result.songID);
-                        if (!requestList.Contains(result.songID))
+                        if (!requests.SongIDs.Contains(result.songID))
                         {
-                            requestList.Add(result.songID);
+                            AddRequest(result.songID);
                             addedAny = true;
                         }
                     }
@@ -179,7 +181,7 @@ namespace AudicaModding
                         MelonLogger.Log($"Found no match for \"{str}\"");
                     }
                 }
-                requestQueue.Clear();
+                unprocessedRequests.Clear();
             }
             
             if (addedAny && MenuState.GetState() == MenuState.State.SongPage)
@@ -190,7 +192,7 @@ namespace AudicaModding
         private static void StartWebSearch(QueryData data)
         {
             string search = data.Title;
-            if (!string.IsNullOrEmpty(data.Artist))
+            if (search == "" && !string.IsNullOrEmpty(data.Artist))
             {
                 search = data.Artist;
             }
@@ -198,7 +200,6 @@ namespace AudicaModding
             {
                 search = data.Mapper;
             }
-
             webSearchQueryData.Add(search, data);
             MelonCoroutines.Start(SongDownloader.DoSongWebSearch(search, ProcessWebSearchResult, DifficultyFilter.All));
         }
@@ -239,15 +240,22 @@ namespace AudicaModding
                     if (isExactMatch)
                     {
                         MelonLogger.Log("Result: " + s.songID);
-                        if (!requestList.Contains(s.songID))
+                        if (!requests.SongIDs.Contains(s.songID))
                         {
-                            requestList.Add(s.songID);
+                            AddRequest(s.songID);
                             addedLocalMatch = true;
                         }
                     }
-                    else if (!missingSongs.ContainsKey(bestMatch.song_id))
+                    else if (!requests.MissingSongs.ContainsKey(bestMatch.song_id))
                     {
-                        missingSongs.Add(bestMatch.song_id, bestMatch);
+                        MissingRequest request = new MissingRequest();
+                        request.SongID      = bestMatch.song_id;
+                        request.Title       = bestMatch.title;
+                        request.Artist      = bestMatch.artist;
+                        request.Mapper      = bestMatch.author;
+                        request.DownloadURL = bestMatch.download_url;
+                        request.PreviewURL  = bestMatch.preview_url;
+                        AddMissing(request.SongID, request);
                         MelonLogger.Log("Result (missing): " + bestMatch.song_id);
                     }
                 }
@@ -264,9 +272,9 @@ namespace AudicaModding
                 if (s != null)
                 {
                     MelonLogger.Log("Result: " + s.songID);
-                    if (!requestList.Contains(s.songID))
+                    if (!requests.SongIDs.Contains(s.songID))
                     {
-                        requestList.Add(s.songID);
+                        AddRequest(s.songID);
                         addedLocalMatch = true;
                     }
                 }
@@ -289,12 +297,12 @@ namespace AudicaModding
         {
             // put all missing songs into the queue to make sure
             // we catch it if they just got downloaded
-            foreach (string s in missingSongs.Keys)
+            foreach (string s in requests.MissingSongs.Keys)
             {
-                Song addedInfo = (Song)missingSongs[s];
-                requestQueue.Add($"{addedInfo.title} -artist {addedInfo.artist} -mapper {addedInfo.author}");
+                MissingRequest addedInfo = GetMissing(s);
+                unprocessedRequests.Add($"{addedInfo.Title} -artist {addedInfo.Artist} -mapper {addedInfo.Mapper}");
             }
-            missingSongs.Clear();
+            ClearMissing();
 
             ProcessQueue();
         }
@@ -310,7 +318,7 @@ namespace AudicaModding
                 {
                     MelonLogger.Log("!asr requested with query \"" + arguments + "\"");
 
-                    requestQueue.Add(arguments);
+                    unprocessedRequests.Add(arguments);
 
                     if (loadComplete)
                     {
@@ -355,6 +363,103 @@ namespace AudicaModding
             public string Mapper { get; private set; }
             public string FullQuery { get; private set; }
         }
+
+        #region Queue
+        internal static void SaveQueue()
+        {
+            string text = JSON.Dump(requests);
+            File.WriteAllText(queuePath, text);
+        }
+
+        internal static void AddRequest(string songID)
+        {
+            requests.SongIDs.Add(songID);
+            SaveQueue();
+        }
+
+        internal static void AddMissing(string songID, MissingRequest song)
+        {
+            requests.MissingSongs.Add(songID, song);
+            SaveQueue();
+        }
+
+        internal static void RemoveRequest(string songID)
+        {
+            requests.SongIDs.Remove(songID);
+            SaveQueue();
+        }
+
+        internal static void RemoveMissing(string songID)
+        {
+            requests.MissingSongs.Remove(songID);
+            SaveQueue();
+        }
+
+        internal static void ClearMissing()
+        {
+            requests.MissingSongs.Clear();
+            SaveQueue();
+        }
+
+        internal static List<string> GetRequests()
+        {
+            return requests.SongIDs;
+        }
+
+        internal static List<string> GetMissingSongs()
+        {
+            return new List<string>(requests.MissingSongs.Keys);
+        }
+
+        internal static MissingRequest GetMissing(string songID)
+        {
+            return requests.MissingSongs[songID];
+        }
+
+        internal static void LoadQueue()
+        {
+            if (File.Exists(queuePath))
+            {
+                string text = File.ReadAllText(queuePath);
+                requests    = JSON.Load(text).Make<RequestQueue>();
+
+                // get rid of any requests that had their map deleted
+                // if the user deleted a requested map that request
+                // will be missing but that should be enough of a niche
+                // case that we can ignore it
+                List<string> availableSongs = new List<string>();
+                for (int i = 0; i < SongList.I.songs.Count; i++)
+                {
+                    string songID = SongList.I.songs[i].songID;
+                    if (requests.SongIDs.Contains(songID))
+                    {
+                        availableSongs.Add(songID);
+                    }
+                }
+                requests.SongIDs = availableSongs;
+
+                SaveQueue();
+            }
+        }
+        #endregion
+    }
+
+    [Serializable]
+    public class RequestQueue
+    {
+        public Dictionary<string, MissingRequest> MissingSongs = new Dictionary<string, MissingRequest>();
+        public List<string> SongIDs = new List<string>();
+    }
+
+    [Serializable]
+    public class MissingRequest
+    {
+        public string SongID;
+        public string Title;
+        public string Artist;
+        public string Mapper;
+        public string DownloadURL;
+        public string PreviewURL;
     }
 }
 

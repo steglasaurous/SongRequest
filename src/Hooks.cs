@@ -36,6 +36,7 @@ namespace AudicaModding
                 if (newState == StartupLoader.State.Complete)
                 {
                     SongRequests.loadComplete = true;
+                    SongRequests.LoadQueue();
                     SongRequests.ProcessQueue();
                 }
             }
@@ -84,7 +85,7 @@ namespace AudicaModding
                     __result.Clear();
                     __instance.songSelectHeaderItems.mItems[0].titleLabel.text = "Song Requests";
 
-                    foreach (string songID in SongRequests.requestList)
+                    foreach (string songID in SongRequests.GetRequests())
                     {
                         __result.Add(songID);
                     }
@@ -116,11 +117,11 @@ namespace AudicaModding
         {
             private static void Postfix(AudioDriver __instance)
             {
-                foreach (string str in SongRequests.requestList.ToList())
+                foreach (string str in SongRequests.GetRequests())
                 {
                     if (str == SongRequests.selectedSong.songID)
                     {
-                        SongRequests.requestList.Remove(str);
+                        SongRequests.RemoveRequest(str);
                     }
                 }
             }

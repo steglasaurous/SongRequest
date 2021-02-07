@@ -88,7 +88,9 @@ namespace AudicaModding
             if (buttonText == null)
                 return;
 
-            if (SongRequests.requestList.Count == 0 && SongRequests.missingSongs.Count == 0)
+            List<string> missingSongs = SongRequests.GetMissingSongs();
+
+            if (SongRequests.GetRequests().Count == 0 && missingSongs.Count == 0)
             {
                 if (buttonText.text.Contains("=green>"))
                 {
@@ -119,9 +121,9 @@ namespace AudicaModding
                     downloadButtonText.text = "Processing...";
                     downloadGunButton.SetInteractable(false);
                 }
-                else if (SongRequests.missingSongs.Count > 0)
+                else if (missingSongs.Count > 0)
                 {
-                    downloadButtonText.text = $"<color=green>Download {SongRequests.missingSongs.Count} missing song(s)</color>";
+                    downloadButtonText.text = $"<color=green>Download {missingSongs.Count} missing song(s)</color>";
                     downloadGunButton.SetInteractable(true);
                 }
                 else
@@ -254,7 +256,7 @@ namespace AudicaModding
         {
             result.Clear();
 
-            foreach (string songID in SongRequests.requestList)
+            foreach (string songID in SongRequests.GetRequests())
             {
                 result.Add(songID);
             }
@@ -286,10 +288,10 @@ namespace AudicaModding
 
         private static void OnSkipSongRequestShot()
         {
-            if (SongRequests.requestList.Count > 0 && songSelect != null && songSelect.songSelectItems != null && songSelect.songSelectItems.mItems != null)
+            if (SongRequests.GetRequests().Count > 0 && songSelect != null && songSelect.songSelectItems != null && songSelect.songSelectItems.mItems != null)
             {
                 string id = songSelect.songSelectItems.mItems[0].mSongData.songID;
-                SongRequests.requestList.Remove(id);
+                SongRequests.RemoveRequest(id);
                 UpdateButtonText();
                 songSelect.ShowSongList();
             }

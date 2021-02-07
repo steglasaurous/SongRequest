@@ -27,3 +27,5 @@ Note that search is not case sensitive, so `!asr Monster` and `!asr MONSTER` giv
   * Enable *Twitch Chat View*
   * Enter the name of your channel in *Twitch Channel:*
 * Optionally: Install the [SongBrowser mod](https://github.com/octoberU/SongBrowser) version 2.4.1 or newer to enable requests for custom songs that haven't been downloaded yet
+
+The queue is preserved when the game is closed or crashes and will be available on next launch.

@@ -59,7 +59,7 @@ namespace AudicaModding
 				downloadAllButton.SetActive(true);
             }
 
-			missingSongsIDs = new List<string>(SongRequests.missingSongs.Keys);
+			missingSongsIDs = SongRequests.GetMissingSongs();
 			SetupList();
 			AddSongItems(songItemMenu);
 		}
@@ -99,16 +99,16 @@ namespace AudicaModding
 
 			foreach (string key in missingSongsIDs)
 			{
-				Song s = (Song)SongRequests.missingSongs[key];
+				MissingRequest s = SongRequests.GetMissing(key);
 				CreateSongItem(s, optionsMenu);
 			}
 		}
 
-		private static void CreateSongItem(Song song, OptionsMenu optionsMenu)
+		private static void CreateSongItem(MissingRequest song, OptionsMenu optionsMenu)
 		{
 			var row = new Il2CppSystem.Collections.Generic.List<GameObject>();
 
-			var textBlock   = optionsMenu.AddTextBlock(0, song.title + " - " + song.artist + " (mapped by " + song.author + ")");
+			var textBlock   = optionsMenu.AddTextBlock(0, song.Title + " - " + song.Artist + " (mapped by " + song.Mapper + ")");
 			var TMP         = textBlock.transform.GetChild(0).GetComponent<TextMeshPro>();
 			TMP.fontSizeMax = 32;
 			TMP.fontSizeMin = 8;
@@ -117,8 +117,8 @@ namespace AudicaModding
 			// Skip button
 			bool   destroyOnShot = true;
 			Action onHit         = new Action(() => {
-				missingSongsIDs.Remove(song.song_id); // remove from local copy
-				SongRequests.missingSongs.Remove(song.song_id); // remove from main list
+				missingSongsIDs.Remove(song.SongID); // remove from local copy
+				SongRequests.RemoveMissing(song.SongID); // remove from main list
 				AddSongItems(optionsMenu); // refresh list
 			});
 
@@ -132,7 +132,7 @@ namespace AudicaModding
 
 			// Download button
 			Action onHit2 = new Action(() => {
-				StartDownload(song.song_id, song.download_url, TMP);
+				StartDownload(song.SongID, song.DownloadURL, TMP);
 			});
 
 			var downloadButton = optionsMenu.AddButton(0,
@@ -146,7 +146,7 @@ namespace AudicaModding
 			// Preview button
 			var previewButton = optionsMenu.AddButton(0,
 				"Preview",
-				new Action(() => { MelonCoroutines.Start(SongDownloader.StreamPreviewSong(song.preview_url)); }),
+				new Action(() => { MelonCoroutines.Start(SongDownloader.StreamPreviewSong(song.PreviewURL)); }),
 				null,
 				null);
 
@@ -176,7 +176,7 @@ namespace AudicaModding
 			{
 				KataConfig.I.CreateDebugText($"Unable to download {songID}", new Vector3(0f, -1f, 5f), 5f, null, false, 0.2f);
 				missingSongsIDs.Remove(songID); // remove from local copy
-				SongRequests.missingSongs.Remove(songID); // remove from main list
+				SongRequests.RemoveMissing(songID); // remove from main list
 			}
 
 		}
@@ -198,7 +198,7 @@ namespace AudicaModding
 			foreach (string id in missingIDs)
 			{
 				downloadCount++;
-				MelonCoroutines.Start(SongDownloader.DownloadSong(id, ((Song)SongRequests.missingSongs[id]).download_url, OnDownloadAllComplete));
+				MelonCoroutines.Start(SongDownloader.DownloadSong(id, SongRequests.GetMissing(id).DownloadURL, OnDownloadAllComplete));
 				yield return null;
 			}
 		}
@@ -210,7 +210,7 @@ namespace AudicaModding
 			{
 				KataConfig.I.CreateDebugText($"Unable to download {songID}", new Vector3(0f, -1f, 5f), 5f, null, false, 0.2f);
 				missingSongsIDs.Remove(songID); // remove from local copy
-				SongRequests.missingSongs.Remove(songID); // remove from main list
+				SongRequests.RemoveMissing(songID); // remove from main list
 			}
 
 			if (downloadCount == 0)
