@@ -25,6 +25,8 @@ namespace AudicaModding
         internal static bool hasCompatibleSongBrowser = false;
         internal static SongList.SongData selectedSong;
 
+        internal static bool requestsEnabled = true;
+
         private static List<string> unprocessedRequests = new List<string>();
         private static RequestQueue requests            = new RequestQueue();
 
@@ -314,7 +316,7 @@ namespace AudicaModding
                 string command = msg.Replace("!", "").Split(" ".ToCharArray())[0];
                 string arguments = msg.Replace("!" + command + " ", "");
 
-                if (command == "asr")
+                if (command == "asr" && requestsEnabled)
                 {
                     MelonLogger.Log("!asr requested with query \"" + arguments + "\"");
 

@@ -18,15 +18,20 @@ namespace AudicaModding
         private static GameObject  downloadMissingButton          = null;
         private static TextMeshPro downloadButtonText             = null;
         private static GunButton   downloadGunButton              = null;
+        private static GameObject  queueOnOffButton               = null;
+        private static TextMeshPro queueOnOffButtonText           = null;
 
         private static Vector3     filterSongRequestsButtonPos   = new Vector3(0.0f, 10.5f, 0.0f);
         private static Vector3     filterSongRequestsButtonScale = new Vector3(2.8f, 2.8f, 2.8f);
                                    
-        private static Vector3     skipButtonPos                 = new Vector3(0.0f, 17.1f, 0.0f);
+        private static Vector3     skipButtonPos                 = new Vector3(4f, 15.1f, 0.0f);
         private static Vector3     skipButtonScale               = new Vector3(1.0f, 1.0f, 1.0f);
 
         private static Vector3     downloadButtonPos             = new Vector3(0.0f, 15.1f, 0.0f);
         private static Vector3     downloadButtonScale           = new Vector3(1.0f, 1.0f, 1.0f);
+
+        private static Vector3     queueOnOffButtonPos           = new Vector3(0.0f, 17.1f, 0.0f);
+        private static Vector3     queueOnOffButtonScale         = new Vector3(1.0f, 1.0f, 1.0f);
 
         private static SongSelect       songSelect       = null;
         private static SongListControls songListControls = null;
@@ -56,6 +61,7 @@ namespace AudicaModding
                     skipButtonPos   = downloadButtonPos;
                     skipButtonScale = downloadButtonScale;
                 }
+                CreateQueueOnOffButton();
                 CreateSongRequestSkipButton();
                 CreateDownloadMissingButton();
             }
@@ -141,12 +147,14 @@ namespace AudicaModding
         public static void ShowAdditionalGUI()
         {
             additionalGUIActive = true;
+            queueOnOffButton?.SetActive(true);
             skipSongRequestsButton?.SetActive(true);
             downloadMissingButton?.SetActive(true);
         }
         public static void HideAdditonalGUI()
         {
             additionalGUIActive = false;
+            queueOnOffButton?.SetActive(false);
             skipSongRequestsButton?.SetActive(false);
             downloadMissingButton?.SetActive(false);
         }
@@ -208,11 +216,31 @@ namespace AudicaModding
             UpdateButtonText();
         }
 
+        private static void CreateQueueOnOffButton()
+        {
+            if (queueOnOffButton != null)
+            {
+                queueOnOffButton.SetActive(additionalGUIActive);
+                return;
+            }
+
+            GameObject backButton = GameObject.Find("menu/ShellPage_Song/page/backParent/back");
+            if (backButton == null)
+                return;
+
+            queueOnOffButton = CreateButton(backButton, "<color=green>Requests Enabled</color>", OnQueueOnOffShot, 
+                                            queueOnOffButtonPos, queueOnOffButtonScale);
+
+            queueOnOffButton.SetActive(additionalGUIActive);
+
+            queueOnOffButtonText = queueOnOffButton.GetComponentInChildren<TextMeshPro>();
+        }
+
         private static void CreateSongRequestSkipButton()
         {
             if (skipSongRequestsButton != null)
             {
-                skipSongRequestsButton.SetActive(true);
+                skipSongRequestsButton.SetActive(additionalGUIActive);
                 return;
             }
 
@@ -233,7 +261,7 @@ namespace AudicaModding
 
             if (downloadMissingButton != null)
             {
-                downloadMissingButton.SetActive(true);
+                downloadMissingButton.SetActive(additionalGUIActive);
                 return;
             }
 
@@ -242,7 +270,7 @@ namespace AudicaModding
                 return;
 
             downloadMissingButton = CreateButton(backButton, "Download missing", OnDownloadMissingShot,
-                                                  downloadButtonPos, downloadButtonScale);
+                                                 downloadButtonPos, downloadButtonScale);
 
             downloadMissingButton.SetActive(additionalGUIActive);
 
@@ -277,6 +305,20 @@ namespace AudicaModding
                 DisableFilter();
             }
             songSelect.ShowSongList();
+        }
+
+        private static void OnQueueOnOffShot()
+        {
+            if (SongRequests.requestsEnabled)
+            {
+                SongRequests.requestsEnabled = false;
+                queueOnOffButtonText.text    = "<color=red>Requests Disabled</color>";
+            }
+            else
+            {
+                SongRequests.requestsEnabled = true;
+                queueOnOffButtonText.text    = "<color=green>Requests Enabled</color>";
+            }
         }
 
         private static void OnDownloadMissingShot()
