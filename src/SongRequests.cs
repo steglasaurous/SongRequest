@@ -99,8 +99,10 @@ namespace AudicaModding
             for (int i = 0; i < SongList.I.songs.Count; i++)
             {
                 SongList.SongData currentSong = SongList.I.songs[i];
-                bool hasArtist = data.Artist == null || currentSong.artist.ToLowerInvariant().Replace(" ", "").Contains(data.Artist);
-                bool hasMapper = data.Mapper == null || currentSong.author.ToLowerInvariant().Replace(" ", "").Contains(data.Mapper);
+                bool hasArtist = currentSong.artist == null || 
+                                 data.Artist == null || currentSong.artist.ToLowerInvariant().Replace(" ", "").Contains(data.Artist);
+                bool hasMapper = currentSong.author == null || 
+                                 data.Mapper == null || currentSong.author.ToLowerInvariant().Replace(" ", "").Contains(data.Mapper);
                 bool hasTitle  = currentSong.title.ToLowerInvariant().Contains(data.Title) ||
                                  currentSong.songID.ToLowerInvariant().Contains(data.Title.Replace(" ", ""));
 
@@ -217,8 +219,8 @@ namespace AudicaModding
                 bool foundExact  = false;
                 foreach (Song s in response.songs)
                 {
-                    bool hasArtist = data.Artist == null || s.artist.ToLowerInvariant().Replace(" ", "").Contains(data.Artist);
-                    bool hasMapper = data.Mapper == null || s.author.ToLowerInvariant().Replace(" ", "").Contains(data.Mapper);
+                    bool hasArtist = s.artist == null || data.Artist == null || s.artist.ToLowerInvariant().Replace(" ", "").Contains(data.Artist);
+                    bool hasMapper = s.author == null || data.Mapper == null || s.author.ToLowerInvariant().Replace(" ", "").Contains(data.Mapper);
                     bool hasTitle  = s.title.ToLowerInvariant().Contains(data.Title) ||
                                      s.song_id.ToLowerInvariant().Contains(data.Title.Replace(" ", ""));
 
