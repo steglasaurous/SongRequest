@@ -228,7 +228,7 @@ namespace AudicaModding
             if (backButton == null)
                 return;
 
-            queueOnOffButton = CreateButton(backButton, "<color=green>Requests Enabled</color>", OnQueueOnOffShot, 
+            queueOnOffButton = CreateButton(backButton, GetQueueOnOffText(), OnQueueOnOffShot, 
                                             queueOnOffButtonPos, queueOnOffButtonScale);
 
             queueOnOffButton.SetActive(additionalGUIActive);
@@ -312,13 +312,18 @@ namespace AudicaModding
             if (SongRequests.requestsEnabled)
             {
                 SongRequests.requestsEnabled = false;
-                queueOnOffButtonText.text    = "<color=red>Requests Disabled</color>";
+                queueOnOffButtonText.text    = GetQueueOnOffText();
             }
             else
             {
                 SongRequests.requestsEnabled = true;
-                queueOnOffButtonText.text    = "<color=green>Requests Enabled</color>";
+                queueOnOffButtonText.text    = GetQueueOnOffText();
             }
+        }
+
+        private static string GetQueueOnOffText()
+        {
+            return SongRequests.requestsEnabled ? "<color=green>Requests Enabled</color>" : "<color=red>Requests Disabled</color>";
         }
 
         private static void OnDownloadMissingShot()
