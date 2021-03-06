@@ -174,7 +174,7 @@ namespace AudicaModding
 			}
 			else
 			{
-				KataConfig.I.CreateDebugText($"Unable to download {songID}", new Vector3(0f, -1f, 5f), 5f, null, false, 0.2f);
+				KataConfig.I.CreateDebugText($"{songID} is unavailable", new Vector3(0f, -1f, 5f), 5f, null, false, 0.2f);
 				missingSongsIDs.Remove(songID); // remove from local copy
 				SongRequests.RemoveMissing(songID); // remove from main list
 			}
@@ -208,7 +208,7 @@ namespace AudicaModding
 			downloadCount--;
 			if (!success)
 			{
-				KataConfig.I.CreateDebugText($"Unable to download {songID}", new Vector3(0f, -1f, 5f), 5f, null, false, 0.2f);
+				KataConfig.I.CreateDebugText($"{songID} is unavailable", new Vector3(0f, -1f, 5f), 5f, null, false, 0.2f);
 				missingSongsIDs.Remove(songID); // remove from local copy
 				SongRequests.RemoveMissing(songID); // remove from main list
 			}

@@ -313,7 +313,7 @@ namespace AudicaModding
 
         public static void ParseCommand(string msg)
         {
-            if (msg.Substring(0, 1) == "!")
+            if (msg.Length > 2 && msg.Substring(0, 1) == "!") // length has to be at least 2: ! and at least one command letter
             {
                 string command = msg.Replace("!", "").Split(" ".ToCharArray())[0];
                 string arguments = msg.Replace("!" + command + " ", "");
