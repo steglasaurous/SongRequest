@@ -27,8 +27,8 @@ namespace AudicaModding
             string tagSeparator = ";";
 
             // pre-process message, could contain flags that mess with the separators
-            string[] components = Regex.Replace(rawMsg, "flags=(.*);", "").Split(separator.ToCharArray());
-
+            string[] components = Regex.Replace(rawMsg, "flags=([^;]*);", "").Split(separator.ToCharArray());
+            
             if (components.Length > 2)
             {
                 string tags = components[0];
