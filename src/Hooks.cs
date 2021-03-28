@@ -21,7 +21,7 @@ namespace AudicaModding
                     {
                         if (msg.Contains("tmi.twitch.tv PRIVMSG "))
                         {
-                            SongRequests.ParseCommand(new ParsedTwitchMessage(msg).Message);
+                            SongRequests.ParseCommand(new ParsedTwitchMessage(msg));
                         }
                     }
                 }
@@ -85,9 +85,9 @@ namespace AudicaModding
                     __result.Clear();
                     __instance.songSelectHeaderItems.mItems[0].titleLabel.text = "Song Requests";
 
-                    foreach (string songID in SongRequests.GetRequests())
+                    foreach (AvailableRequest req in SongRequests.GetRequests())
                     {
-                        __result.Add(songID);
+                        __result.Add(req.SongID);
                     }
                     __instance.scroller.SnapTo(0);
                 }
@@ -117,11 +117,11 @@ namespace AudicaModding
         {
             private static void Postfix(AudioDriver __instance)
             {
-                foreach (string str in SongRequests.GetRequests())
+                foreach (AvailableRequest req in SongRequests.GetRequests())
                 {
-                    if (str == SongRequests.selectedSong.songID)
+                    if (req.SongID == SongRequests.selectedSong.songID)
                     {
-                        SongRequests.RemoveRequest(str);
+                        SongRequests.RemoveRequest(req.SongID);
                     }
                 }
             }

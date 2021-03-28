@@ -74,7 +74,7 @@ namespace AudicaModding
 
         public static int GetBits(ParsedTwitchMessage msg)
         {
-            if (msg.Bits != "")
+            if (msg.Bits == "")
             {
                 return 0;
             }
@@ -83,7 +83,7 @@ namespace AudicaModding
                 int totalBits = 0;
                 foreach (string str in msg.Bits.Split(",".ToCharArray()))
                 {
-                    totalBits += System.Convert.ToInt32(str);
+                    totalBits += Convert.ToInt32(str);
                 }
                 return totalBits;
             }
@@ -99,26 +99,40 @@ namespace AudicaModding
             for (int i = 0; i < SongList.I.songs.Count; i++)
             {
                 SongList.SongData currentSong = SongList.I.songs[i];
-                bool hasArtist = currentSong.artist == null || 
-                                 data.Artist == null || currentSong.artist.ToLowerInvariant().Replace(" ", "").Contains(data.Artist);
-                bool hasMapper = currentSong.author == null || 
-                                 data.Mapper == null || currentSong.author.ToLowerInvariant().Replace(" ", "").Contains(data.Mapper);
-                bool hasTitle  = currentSong.title.ToLowerInvariant().Contains(data.Title) ||
-                                 currentSong.songID.ToLowerInvariant().Contains(data.Title.Replace(" ", ""));
-
-                if ((hasArtist && hasMapper && hasTitle) ||
-                    (data.Title == "" && data.Artist != null && hasArtist) ||
-                    (data.Title == "" && data.Mapper != null && hasMapper))
+                Request req = new Request
                 {
-                    if (LookForMatch(data.Title, currentSong.title, ref foundAny, ref foundBetter, ref foundExactMatch))
-                    {
-                        song = currentSong;
-                        if (foundExactMatch)
-                            break;
-                    }
+                    SongID = currentSong.songID,
+                    Title  = currentSong.title,
+                    Artist = currentSong.artist,
+                    Mapper = currentSong.author
+                };
+
+                if (LookForMatch(data, req, ref foundAny, ref foundBetter, ref foundExactMatch))
+                {
+                    song = currentSong;
+                    if (foundExactMatch)
+                        break;
                 }
             }
             return song;
+        }
+        private static bool LookForMatch(QueryData query, Request req,
+                                         ref bool foundAny, ref bool foundBetter, ref bool foundExact)
+        {
+            bool hasArtist = req.Artist == null ||
+                             query.Artist == null || req.Artist.ToLowerInvariant().Replace(" ", "").Contains(query.Artist);
+            bool hasMapper = req.Mapper == null ||
+                             query.Mapper == null || req.Mapper.ToLowerInvariant().Replace(" ", "").Contains(query.Mapper);
+            bool hasTitle = req.Title.ToLowerInvariant().Contains(query.Title) ||
+                             req.SongID.ToLowerInvariant().Contains(query.Title.Replace(" ", ""));
+
+            if ((hasArtist && hasMapper && hasTitle) ||
+                (query.Title == "" && query.Artist != null && hasArtist) ||
+                (query.Title == "" && query.Mapper != null && hasMapper))
+            {
+                return LookForMatch(query.Title, req.Title, ref foundAny, ref foundBetter, ref foundExact);
+            }
+            return false;
         }
         private static bool LookForMatch(string querySongTitle, string matchSongTitle, 
                                          ref bool foundAny, ref bool foundBetter, ref bool foundExact)
@@ -170,11 +184,8 @@ namespace AudicaModding
                         // if we have web search we want to make sure we prioritize exact matches
                         // over partial local ones
                         MelonLogger.Log("Result: " + result.songID);
-                        if (!requests.SongIDs.Contains(result.songID))
-                        {
-                            AddRequest(result.songID);
+                        if (AddRequest(result))
                             addedAny = true;
-                        }
                     }
                     else if (hasCompatibleSongBrowser)
                     {
@@ -219,21 +230,18 @@ namespace AudicaModding
                 bool foundExact  = false;
                 foreach (Song s in response.songs)
                 {
-                    bool hasArtist = s.artist == null || data.Artist == null || s.artist.ToLowerInvariant().Replace(" ", "").Contains(data.Artist);
-                    bool hasMapper = s.author == null || data.Mapper == null || s.author.ToLowerInvariant().Replace(" ", "").Contains(data.Mapper);
-                    bool hasTitle  = s.title.ToLowerInvariant().Contains(data.Title) ||
-                                     s.song_id.ToLowerInvariant().Contains(data.Title.Replace(" ", ""));
-
-                    if ((hasArtist && hasMapper && hasTitle) ||
-                        (data.Title == "" && data.Artist != null && hasArtist) ||
-                        (data.Title == "" && data.Mapper != null && hasMapper))
+                    Request req = new Request
                     {
-                        if (LookForMatch(data.Title, s.title, ref foundAny, ref foundBetter, ref foundExact))
-                        {
-                            bestMatch = s;
-                            if (foundExact)
-                                break;
-                        }
+                        SongID = s.song_id,
+                        Title  = s.title,
+                        Artist = s.artist,
+                        Mapper = s.author
+                    };
+                    if (LookForMatch(data, req, ref foundAny, ref foundBetter, ref foundExact))
+                    {
+                        bestMatch = s;
+                        if (foundExact)
+                            break;
                     }
                 }
                 if (bestMatch != null)
@@ -244,11 +252,8 @@ namespace AudicaModding
                     if (isExactMatch)
                     {
                         MelonLogger.Log("Result: " + s.songID);
-                        if (!requests.SongIDs.Contains(s.songID))
-                        {
-                            AddRequest(s.songID);
+                        if (AddRequest(s))
                             addedLocalMatch = true;
-                        }
                     }
                     else if (!requests.MissingSongs.ContainsKey(bestMatch.song_id))
                     {
@@ -276,11 +281,8 @@ namespace AudicaModding
                 if (s != null)
                 {
                     MelonLogger.Log("Result: " + s.songID);
-                    if (!requests.SongIDs.Contains(s.songID))
-                    {
-                        AddRequest(s.songID);
+                    if (AddRequest(s))
                         addedLocalMatch = true;
-                    }
                 }
                 else
                 {
@@ -311,8 +313,65 @@ namespace AudicaModding
             ProcessQueue();
         }
 
-        public static void ParseCommand(string msg)
+        public static void ProcessRemoval(string arguments)
         {
+            QueryData query = new QueryData(arguments);
+
+            bool foundAny        = false;
+            bool foundBetter     = false;
+            bool foundExactMatch = false;
+            int  matchIdx        = -1;
+
+            // check available songs
+            for (int i = 0; i < requests.AvailableSongs.Count; i++)
+            {
+                AvailableRequest req = requests.AvailableSongs[i];
+
+                if (LookForMatch(query, req, ref foundAny, ref foundBetter, ref foundExactMatch))
+                {
+                    matchIdx = i;
+                    if (foundExactMatch)
+                        break;
+                }
+            }
+            if (matchIdx != -1)
+            {
+                RemoveRequest(requests.AvailableSongs[matchIdx].SongID);
+                MelonLogger.Log("Removed \"" + arguments + "\" from available requests");
+                if (MenuState.GetState() == MenuState.State.SongPage)
+                {
+                    RequestUI.UpdateFilter();
+                }
+            }
+            else
+            {
+                List<string> keys = new List<string>(requests.MissingSongs.Keys);
+                for (int i = 0; i < keys.Count; i++)
+                {
+                    MissingRequest req = requests.MissingSongs[keys[i]];
+
+                    if (LookForMatch(query, req, ref foundAny, ref foundBetter, ref foundExactMatch))
+                    {
+                        matchIdx = i;
+                        if (foundExactMatch)
+                            break;
+                    }
+                }
+                if (matchIdx != -1)
+                {
+                    RemoveMissing(keys[matchIdx]);
+                    MelonLogger.Log("Removed \"" + arguments + "\" from missing requests");
+                }
+            }
+            if (matchIdx != -1 && MenuState.GetState() == MenuState.State.SongPage)
+            {
+                RequestUI.UpdateButtonText();
+            }
+        }
+
+        public static void ParseCommand(ParsedTwitchMessage twitchMessage)
+        {
+            string msg = twitchMessage.Message;
             if (msg.Length > 2 && msg.Substring(0, 1) == "!") // length has to be at least 2: ! and at least one command letter
             {
                 string command = msg.Replace("!", "").Split(" ".ToCharArray())[0];
@@ -328,6 +387,11 @@ namespace AudicaModding
                     {
                         ProcessQueue();
                     }
+                }
+                else if ((command == "remove" || command == "yeet") && twitchMessage.Mod == "1")
+                {
+                    MelonLogger.Log("!remove requested with query \"" + arguments + "\"");
+                    ProcessRemoval(arguments);
                 }
             }
         }
@@ -375,9 +439,26 @@ namespace AudicaModding
             File.WriteAllText(queuePath, text);
         }
 
-        internal static void AddRequest(string songID)
+        internal static bool AddRequest(SongList.SongData s)
         {
-            requests.SongIDs.Add(songID);
+            AvailableRequest req = new AvailableRequest();
+            req.SongID           = s.songID;
+            if (!requests.AvailableSongs.Contains(req))
+            {
+                // comparison uses only the SongID, so we can save 
+                // some time by only adding the rest now
+                req.Title  = s.title;
+                req.Artist = s.artist;
+                req.Mapper = s.author;
+                AddRequest(req);
+                return true;
+            }
+            return false;
+        }
+
+        internal static void AddRequest(AvailableRequest request)
+        {
+            requests.AvailableSongs.Add(request);
             SaveQueue();
         }
 
@@ -389,7 +470,9 @@ namespace AudicaModding
 
         internal static void RemoveRequest(string songID)
         {
-            requests.SongIDs.Remove(songID);
+            AvailableRequest remove = new AvailableRequest();
+            remove.SongID           = songID;
+            requests.AvailableSongs.Remove(remove);
             SaveQueue();
         }
 
@@ -405,9 +488,9 @@ namespace AudicaModding
             SaveQueue();
         }
 
-        internal static List<string> GetRequests()
+        internal static List<AvailableRequest> GetRequests()
         {
-            return requests.SongIDs;
+            return requests.AvailableSongs;
         }
 
         internal static List<string> GetMissingSongs()
@@ -424,23 +507,36 @@ namespace AudicaModding
         {
             if (File.Exists(queuePath))
             {
-                string text = File.ReadAllText(queuePath);
-                requests    = JSON.Load(text).Make<RequestQueue>();
-
-                // get rid of any requests that had their map deleted
-                // if the user deleted a requested map that request
-                // will be missing but that should be enough of a niche
-                // case that we can ignore it
-                List<string> availableSongs = new List<string>();
-                for (int i = 0; i < SongList.I.songs.Count; i++)
+                try
                 {
-                    string songID = SongList.I.songs[i].songID;
-                    if (requests.SongIDs.Contains(songID))
+                    string text = File.ReadAllText(queuePath);
+                    requests    = JSON.Load(text).Make<RequestQueue>();
+
+                    // get rid of any requests that had their map deleted
+                    // if the user deleted a requested map that request
+                    // will be missing but that should be enough of a niche
+                    // case that we can ignore it
+                    List<AvailableRequest> availableSongs = new List<AvailableRequest>();
+                    for (int i = 0; i < SongList.I.songs.Count; i++)
                     {
-                        availableSongs.Add(songID);
+                        AvailableRequest newReq = new AvailableRequest();
+                        newReq.SongID           = SongList.I.songs[i].songID;
+                        if (requests.AvailableSongs.Contains(newReq))
+                        {
+                            // comparison uses only the SongID, so we can save 
+                            // some time by only adding the rest now
+                            newReq.Title  = SongList.I.songs[i].title;
+                            newReq.Artist = SongList.I.songs[i].artist;
+                            newReq.Mapper = SongList.I.songs[i].author;
+                            availableSongs.Add(newReq);
+                        }
                     }
+                    requests.AvailableSongs = availableSongs;
                 }
-                requests.SongIDs = availableSongs;
+                catch
+                {
+                    MelonLogger.Log("Unable to load queue");
+                }
 
                 SaveQueue();
             }
@@ -451,19 +547,48 @@ namespace AudicaModding
     [Serializable]
     public class RequestQueue
     {
-        public Dictionary<string, MissingRequest> MissingSongs = new Dictionary<string, MissingRequest>();
-        public List<string> SongIDs = new List<string>();
+        public Dictionary<string, MissingRequest> MissingSongs   = new Dictionary<string, MissingRequest>();
+        public List<AvailableRequest>             AvailableSongs = new List<AvailableRequest>();
     }
 
-    [Serializable]
-    public class MissingRequest
+    public class Request
     {
         public string SongID;
         public string Title;
         public string Artist;
         public string Mapper;
+    }
+
+    [Serializable]
+    public class MissingRequest : Request
+    {
         public string DownloadURL;
         public string PreviewURL;
+    }
+
+    [Serializable]
+    public class AvailableRequest : Request, IEquatable<AvailableRequest>
+    {
+
+        public override bool Equals(object obj)
+        {
+            return Equals(obj as AvailableRequest);
+        }
+
+        public bool Equals(AvailableRequest other)
+        {
+            if (other == null)
+            {
+                return false;
+            }
+
+            return SongID == other.SongID;
+        }
+
+        public override int GetHashCode()
+        {
+            return base.GetHashCode();
+        }
     }
 }
 

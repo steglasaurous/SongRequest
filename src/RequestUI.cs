@@ -284,9 +284,9 @@ namespace AudicaModding
         {
             result.Clear();
 
-            foreach (string songID in SongRequests.GetRequests())
+            foreach (AvailableRequest req in SongRequests.GetRequests())
             {
-                result.Add(songID);
+                result.Add(req.SongID);
             }
             return true;
         }

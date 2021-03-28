@@ -90,6 +90,8 @@ namespace AudicaModding
                         UserId = str.Replace("user-id=", "");
                     }
                 }
+                if (Badges.Contains("broadcaster")) // make sure the broadcaster is also counted as having mod privileges
+                    Mod = "1";
             }
         }
     }
