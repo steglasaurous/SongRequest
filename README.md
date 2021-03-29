@@ -7,7 +7,7 @@ Find a song you want to request using one of these:
 * [BeastSaber Audica Song List](https://bsaber.com/category/audica/)
 * [Audica Wiki](http://www.audica.wiki/audicawiki/index.php/Custom_Songs)
 
-Then use a variation of the !asr command in twitch chat:
+Then use a variation of the **!asr** command in twitch chat:
 
 | Command                                       | Example                              | Result                                          |
 |-----------------------------------------------|--------------------------------------|-------------------------------------------------|
@@ -17,6 +17,21 @@ Then use a variation of the !asr command in twitch chat:
 |!asr *title* - artist *artist* -mapper *mapper*|!asr Man -artist Rihanna -mapper Draco| Request Man Down by Rihanna, mapped by DeadDraco|
 
 Note that search is not case sensitive, so `!asr Monster` and `!asr MONSTER` give the same result unless the mapper or artist is explicitly included in the command (the way it is done in the examples above).
+
+Use **!oops** to remove your latest request in case you don't want to keep it.
+
+| Command                                          | Example                                 | Result                                          |
+|--------------------------------------------------|-----------------------------------------|-------------------------------------------------|
+|!oops                                             |!oops                                    | Remove your latest request                      | 
+
+**Mods and the channel owner** can remove any request using **!remove** (comes with the same variations as !asr, so e.g. !remove Monster -mapper Octo).
+
+| Command                                          | Example                                 | Result                                          |
+|--------------------------------------------------|-----------------------------------------|-------------------------------------------------|
+|!remove *title*                                   |!remove Those Who Fight                  | Remove Those Who Fight Further                  | 
+|!remove *title* -mapper *mapper*                  |!remove Monster -mapper Octo             | Remove Monster mapped by Octo                   |
+|!remove *title* -artist *artist*                  |!remove MONSTER -artist REOL             | Remove MONSTER by REOL                          |
+|!remove *title* - artist *artist* -mapper *mapper*|!remove Man -artist Rihanna -mapper Draco| Remove Man Down by Rihanna, mapped by DeadDraco |
 
 ## Installation
 * Download latest release from [here](https://github.com/Alternity156/SongRequest/releases)
