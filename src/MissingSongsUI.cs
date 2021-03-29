@@ -17,7 +17,7 @@ namespace AudicaModding
 		private static GunButton   backButton;
 		private static GameObject  downloadAllButton;
 
-		private static List<string> missingSongsIDs = null;
+		private static List<MissingRequest> missingSongs = null;
 		private static int downloadCount = 0;
 
 		public static void SetMenu(OptionsMenu optionsMenu)
@@ -59,7 +59,7 @@ namespace AudicaModding
 				downloadAllButton.SetActive(true);
             }
 
-			missingSongsIDs = SongRequests.GetMissingSongs();
+			missingSongs = new List<MissingRequest>(SongRequests.GetMissingSongs());
 			SetupList();
 			AddSongItems(songItemMenu);
 		}
@@ -95,12 +95,11 @@ namespace AudicaModding
 		public static void AddSongItems(OptionsMenu optionsMenu)
 		{
 			CleanUpPage(optionsMenu);
-			songItemMenu.screenTitle.text = "Missing " + missingSongsIDs.Count + " songs";
+			songItemMenu.screenTitle.text = "Missing " + missingSongs.Count + " songs";
 
-			foreach (string key in missingSongsIDs)
+			foreach (MissingRequest req in missingSongs)
 			{
-				MissingRequest s = SongRequests.GetMissing(key);
-				CreateSongItem(s, optionsMenu);
+				CreateSongItem(req, optionsMenu);
 			}
 		}
 
@@ -117,8 +116,8 @@ namespace AudicaModding
 			// Skip button
 			bool   destroyOnShot = true;
 			Action onHit         = new Action(() => {
-				missingSongsIDs.Remove(song.SongID); // remove from local copy
-				SongRequests.RemoveMissing(song.SongID); // remove from main list
+				missingSongs.Remove(song); // remove from local copy
+				SongRequests.RemoveMissing(song); // remove from main list
 				AddSongItems(optionsMenu); // refresh list
 			});
 
@@ -158,9 +157,10 @@ namespace AudicaModding
 		}
 
 		private static void StartDownload(string songID, string downloadURL, TextMeshPro tmp)
-        {
+		{
 			downloadCount++;
-			missingSongsIDs.Remove(songID); // remove from local list so we don't queue it up again if Download All is used
+			MissingRequest req = new MissingRequest() { SongID = songID };
+			missingSongs.Remove(req); // remove from local list so we don't queue it up again if Download All is used
 			AddSongItems(songItemMenu); // refresh list
 			MelonCoroutines.Start(SongDownloader.DownloadSong(songID, downloadURL, OnDownloadDone));
 		}
@@ -175,8 +175,9 @@ namespace AudicaModding
 			else
 			{
 				KataConfig.I.CreateDebugText($"{songID} is unavailable", new Vector3(0f, -1f, 5f), 5f, null, false, 0.2f);
-				missingSongsIDs.Remove(songID); // remove from local copy
-				SongRequests.RemoveMissing(songID); // remove from main list
+				MissingRequest req = new MissingRequest() { SongID = songID };
+				missingSongs.Remove(req); // remove from local copy
+				SongRequests.RemoveMissing(req); // remove from main list
 			}
 
 		}
@@ -194,11 +195,11 @@ namespace AudicaModding
 		private static IEnumerator DownloadAll()
 		{
 			yield return new WaitForSeconds(0.5f);
-			List<string> missingIDs = new List<string>(missingSongsIDs); // don't risk having missingSongsIDs modified mid-loop
-			foreach (string id in missingIDs)
+			List<MissingRequest> missing = new List<MissingRequest>(missingSongs); // don't risk having missingSongs modified mid-loop
+			foreach (MissingRequest req in missing)
 			{
 				downloadCount++;
-				MelonCoroutines.Start(SongDownloader.DownloadSong(id, SongRequests.GetMissing(id).DownloadURL, OnDownloadAllComplete));
+				MelonCoroutines.Start(SongDownloader.DownloadSong(req.SongID, req.DownloadURL, OnDownloadAllComplete));
 				yield return null;
 			}
 		}
@@ -209,8 +210,9 @@ namespace AudicaModding
 			if (!success)
 			{
 				KataConfig.I.CreateDebugText($"{songID} is unavailable", new Vector3(0f, -1f, 5f), 5f, null, false, 0.2f);
-				missingSongsIDs.Remove(songID); // remove from local copy
-				SongRequests.RemoveMissing(songID); // remove from main list
+				MissingRequest req = new MissingRequest() { SongID = songID };
+				missingSongs.Remove(req); // remove from local copy
+				SongRequests.RemoveMissing(req); // remove from main list
 			}
 
 			if (downloadCount == 0)

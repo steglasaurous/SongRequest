@@ -27,8 +27,8 @@ namespace AudicaModding
 
         internal static bool requestsEnabled = true;
 
-        private static List<string> unprocessedRequests = new List<string>();
-        private static RequestQueue requests            = new RequestQueue();
+        private static List<RequestData> unprocessedRequests = new List<RequestData>();
+        private static RequestQueue      requests            = new RequestQueue();
 
         private static Dictionary<string, QueryData> webSearchQueryData = new Dictionary<string, QueryData>();
         private static string                        queuePath          = UnityEngine.Application.dataPath + "/../" + "/UserData/" + "SongRequestQueue.json";
@@ -174,9 +174,9 @@ namespace AudicaModding
             
             if (unprocessedRequests.Count != 0)
             {
-                foreach (string str in unprocessedRequests)
+                foreach (RequestData req in unprocessedRequests)
                 {
-                    QueryData         data   = new QueryData(str);
+                    QueryData         data   = new QueryData(req);
                     SongList.SongData result = SearchSong(data, out bool foundExactMatch);
 
                     if ((!hasCompatibleSongBrowser || foundExactMatch) && result != null)
@@ -184,7 +184,7 @@ namespace AudicaModding
                         // if we have web search we want to make sure we prioritize exact matches
                         // over partial local ones
                         MelonLogger.Log("Result: " + result.songID);
-                        if (AddRequest(result))
+                        if (AddRequest(result, data.RequestedBy, data.RequestedAt))
                             addedAny = true;
                     }
                     else if (hasCompatibleSongBrowser)
@@ -193,7 +193,7 @@ namespace AudicaModding
                     }
                     else
                     {
-                        MelonLogger.Log($"Found no match for \"{str}\"");
+                        MelonLogger.Log($"Found no match for \"{req.Query}\"");
                     }
                 }
                 unprocessedRequests.Clear();
@@ -247,24 +247,18 @@ namespace AudicaModding
                 if (bestMatch != null)
                 {
                     // check if we already have that file downloaded
-                    QueryData matchData = new QueryData($"{bestMatch.title} -artist {bestMatch.artist} -mapper {bestMatch.author}");
-                    SongList.SongData s = SearchSong(matchData, out bool isExactMatch);
+                    RequestData       r         = new RequestData($"{bestMatch.title} -artist {bestMatch.artist} -mapper {bestMatch.author}", 
+                                                                  data.RequestedBy, data.RequestedAt);
+                    QueryData         matchData = new QueryData(r);
+                    SongList.SongData s         = SearchSong(matchData, out bool isExactMatch);
                     if (isExactMatch)
                     {
                         MelonLogger.Log("Result: " + s.songID);
-                        if (AddRequest(s))
+                        if (AddRequest(s, data.RequestedBy, data.RequestedAt))
                             addedLocalMatch = true;
                     }
-                    else if (!requests.MissingSongs.ContainsKey(bestMatch.song_id))
+                    else if (AddMissing(bestMatch, data.RequestedBy, data.RequestedAt))
                     {
-                        MissingRequest request = new MissingRequest();
-                        request.SongID      = bestMatch.song_id;
-                        request.Title       = bestMatch.title;
-                        request.Artist      = bestMatch.artist;
-                        request.Mapper      = bestMatch.author;
-                        request.DownloadURL = bestMatch.download_url;
-                        request.PreviewURL  = bestMatch.preview_url;
-                        AddMissing(request.SongID, request);
                         MelonLogger.Log("Result (missing): " + bestMatch.song_id);
                     }
                 }
@@ -281,7 +275,7 @@ namespace AudicaModding
                 if (s != null)
                 {
                     MelonLogger.Log("Result: " + s.songID);
-                    if (AddRequest(s))
+                    if (AddRequest(s, data.RequestedBy, data.RequestedAt))
                         addedLocalMatch = true;
                 }
                 else
@@ -303,10 +297,9 @@ namespace AudicaModding
         {
             // put all missing songs into the queue to make sure
             // we catch it if they just got downloaded
-            foreach (string s in requests.MissingSongs.Keys)
+            foreach (MissingRequest s in requests.MissingSongs)
             {
-                MissingRequest addedInfo = GetMissing(s);
-                unprocessedRequests.Add($"{addedInfo.Title} -artist {addedInfo.Artist} -mapper {addedInfo.Mapper}");
+                unprocessedRequests.Add(new RequestData($"{s.Title} -artist {s.Artist} -mapper {s.Mapper}", s.RequestedBy, s.RequestedAt));
             }
             ClearMissing();
 
@@ -315,7 +308,7 @@ namespace AudicaModding
 
         public static void ProcessRemoval(string arguments)
         {
-            QueryData query = new QueryData(arguments);
+            QueryData query = new QueryData(new RequestData(arguments, "", DateTime.Now));
 
             bool foundAny        = false;
             bool foundBetter     = false;
@@ -325,7 +318,7 @@ namespace AudicaModding
             // check available songs
             for (int i = 0; i < requests.AvailableSongs.Count; i++)
             {
-                AvailableRequest req = requests.AvailableSongs[i];
+                Request req = requests.AvailableSongs[i];
 
                 if (LookForMatch(query, req, ref foundAny, ref foundBetter, ref foundExactMatch))
                 {
@@ -336,19 +329,18 @@ namespace AudicaModding
             }
             if (matchIdx != -1)
             {
-                RemoveRequest(requests.AvailableSongs[matchIdx].SongID);
+                RemoveRequest(requests.AvailableSongs[matchIdx]);
                 MelonLogger.Log("Removed \"" + arguments + "\" from available requests");
                 if (MenuState.GetState() == MenuState.State.SongPage)
                 {
                     RequestUI.UpdateFilter();
                 }
             }
-            else
+            else // not in available, might be in missing
             {
-                List<string> keys = new List<string>(requests.MissingSongs.Keys);
-                for (int i = 0; i < keys.Count; i++)
+                for (int i = 0; i < requests.MissingSongs.Count; i++)
                 {
-                    MissingRequest req = requests.MissingSongs[keys[i]];
+                    MissingRequest req = requests.MissingSongs[i];
 
                     if (LookForMatch(query, req, ref foundAny, ref foundBetter, ref foundExactMatch))
                     {
@@ -359,13 +351,88 @@ namespace AudicaModding
                 }
                 if (matchIdx != -1)
                 {
-                    RemoveMissing(keys[matchIdx]);
+                    RemoveMissing(requests.MissingSongs[matchIdx]);
                     MelonLogger.Log("Removed \"" + arguments + "\" from missing requests");
                 }
             }
             if (matchIdx != -1 && MenuState.GetState() == MenuState.State.SongPage)
             {
                 RequestUI.UpdateButtonText();
+            }
+        }
+
+        public static void ProcessOops(string userId)
+        {
+            int availableMatchIdx = -1;
+            int missingMatchIdx   = -1;
+
+            // check available songs
+            for (int i = requests.AvailableSongs.Count - 1; i >= 0; i--)
+            {
+                Request req = requests.AvailableSongs[i];
+                MelonLogger.Log($"{userId} vs {req.RequestedBy}");
+                if (req.RequestedBy == userId)
+                {
+                    availableMatchIdx = i;
+                    break;
+                }
+            }
+            // check missing songs
+            for (int i = requests.MissingSongs.Count - 1; i >= 0; i--)
+            {
+                MissingRequest req = requests.MissingSongs[i];
+                MelonLogger.Log($"{userId} vs {req.RequestedBy}");
+
+                if (req.RequestedBy == userId)
+                {
+                    missingMatchIdx = i;
+                    break;
+                }
+            }
+            if (availableMatchIdx != -1 || missingMatchIdx != -1)
+            {
+                // we need the latest request
+                Request        available = (availableMatchIdx == -1 ? null : requests.AvailableSongs[availableMatchIdx]);
+                MissingRequest missing   = (missingMatchIdx   == -1 ? null : requests.MissingSongs[missingMatchIdx]);
+
+                if (available != null && missing != null)
+                {
+                    if (available.RequestedAt > missing.RequestedAt)
+                    {
+                        MelonLogger.Log($"Removed {userId}'s latest request {available.Title} from available requests");
+                        RemoveRequest(available);
+
+                        if (MenuState.GetState() == MenuState.State.SongPage)
+                        {
+                            RequestUI.UpdateFilter();
+                        }
+                    }
+                    else
+                    {
+                        MelonLogger.Log($"Removed {userId}'s latest request {missing.Title} from missing requests");
+                        RemoveMissing(missing);
+                    }
+                }
+                else if (available != null)
+                {
+                    MelonLogger.Log($"Removed {userId}'s latest request {available.Title} from available requests");
+                    RemoveRequest(available);
+
+                    if (MenuState.GetState() == MenuState.State.SongPage)
+                    {
+                        RequestUI.UpdateFilter();
+                    }
+                }
+                else
+                {
+                    MelonLogger.Log($"Removed {userId}'s latest request {missing.Title} from missing requests");
+                    RemoveMissing(missing);
+                }
+
+                if (MenuState.GetState() == MenuState.State.SongPage)
+                {
+                    RequestUI.UpdateButtonText();
+                }
             }
         }
 
@@ -381,7 +448,7 @@ namespace AudicaModding
                 {
                     MelonLogger.Log("!asr requested with query \"" + arguments + "\"");
 
-                    unprocessedRequests.Add(arguments);
+                    unprocessedRequests.Add(new RequestData(arguments, twitchMessage.UserId, DateTime.Now));
 
                     if (loadComplete)
                     {
@@ -393,14 +460,33 @@ namespace AudicaModding
                     MelonLogger.Log("!remove requested with query \"" + arguments + "\"");
                     ProcessRemoval(arguments);
                 }
+                else if (command == "oops")
+                {
+                    MelonLogger.Log("!oops requested");
+                    ProcessOops(twitchMessage.UserId);
+                }
             }
+        }
+
+        private class RequestData
+        {
+            public RequestData(string query, string requestedBy, DateTime timeOfRequest)
+            {
+                Query         = query;
+                RequestedBy   = requestedBy;
+                TimeOfRequest = timeOfRequest;
+            }
+
+            public string   Query;
+            public string   RequestedBy;
+            public DateTime TimeOfRequest;
         }
 
         private class QueryData
         {
-            public QueryData(string query)
+            public QueryData(RequestData req)
             {
-                string queryInvariant = query.ToLowerInvariant();
+                string queryInvariant = req.Query.ToLowerInvariant();
 
                 Artist    = null;
                 Mapper    = null;
@@ -423,13 +509,17 @@ namespace AudicaModding
                     Mapper         = m.Value.Replace("-mapper", "").Trim();
                     Mapper         = Mapper.Replace(" ", "");
                 }
-                Title = queryInvariant.Trim();
+                Title       = queryInvariant.Trim();
+                RequestedBy = req.RequestedBy;
+                RequestedAt = req.TimeOfRequest;
             }
 
-            public string Title { get; private set; }
-            public string Artist { get; private set; }
-            public string Mapper { get; private set; }
-            public string FullQuery { get; private set; }
+            public string   Title { get; private set; }
+            public string   Artist { get; private set; }
+            public string   Mapper { get; private set; }
+            public string   RequestedBy { get; private set; }
+            public DateTime RequestedAt { get; private set; }
+            public string   FullQuery { get; private set; }
         }
 
         #region Queue
@@ -439,46 +529,63 @@ namespace AudicaModding
             File.WriteAllText(queuePath, text);
         }
 
-        internal static bool AddRequest(SongList.SongData s)
+        internal static bool AddRequest(SongList.SongData s, string requestedBy, DateTime requestedAt)
         {
-            AvailableRequest req = new AvailableRequest();
-            req.SongID           = s.songID;
+            Request req = new Request();
+            req.SongID  = s.songID;
             if (!requests.AvailableSongs.Contains(req))
             {
                 // comparison uses only the SongID, so we can save 
                 // some time by only adding the rest now
-                req.Title  = s.title;
-                req.Artist = s.artist;
-                req.Mapper = s.author;
-                AddRequest(req);
+                req.Title       = s.title;
+                req.Artist      = s.artist;
+                req.Mapper      = s.author;
+                req.RequestedBy = requestedBy;
+                req.RequestedAt = requestedAt;
+                requests.AvailableSongs.Add(req);
+                SaveQueue();
                 return true;
             }
             return false;
         }
 
-        internal static void AddRequest(AvailableRequest request)
+        internal static bool AddMissing(Song s, string requestedBy, DateTime requestedAt)
         {
-            requests.AvailableSongs.Add(request);
-            SaveQueue();
-        }
-
-        internal static void AddMissing(string songID, MissingRequest song)
-        {
-            requests.MissingSongs.Add(songID, song);
-            SaveQueue();
+            MissingRequest req = new MissingRequest();
+            req.SongID         = s.song_id;
+            if (!requests.AvailableSongs.Contains(req))
+            {
+                // comparison uses only the SongID, so we can save 
+                // some time by only adding the rest now
+                req.Title       = s.title;
+                req.Artist      = s.artist;
+                req.Mapper      = s.author;
+                req.RequestedBy = requestedBy;
+                req.RequestedAt = requestedAt;
+                req.DownloadURL = s.download_url;
+                req.PreviewURL  = s.preview_url;
+                requests.MissingSongs.Add(req);
+                SaveQueue();
+                return true;
+            }
+            return false;
         }
 
         internal static void RemoveRequest(string songID)
         {
-            AvailableRequest remove = new AvailableRequest();
-            remove.SongID           = songID;
-            requests.AvailableSongs.Remove(remove);
+            Request remove = new Request();
+            remove.SongID  = songID;
+            RemoveRequest(remove);
+        }
+        internal static void RemoveRequest(Request req)
+        {
+            requests.AvailableSongs.Remove(req);
             SaveQueue();
         }
 
-        internal static void RemoveMissing(string songID)
+        internal static void RemoveMissing(MissingRequest missing)
         {
-            requests.MissingSongs.Remove(songID);
+            requests.MissingSongs.Remove(missing);
             SaveQueue();
         }
 
@@ -488,19 +595,14 @@ namespace AudicaModding
             SaveQueue();
         }
 
-        internal static List<AvailableRequest> GetRequests()
+        internal static List<Request> GetRequests()
         {
             return requests.AvailableSongs;
         }
 
-        internal static List<string> GetMissingSongs()
+        internal static List<MissingRequest> GetMissingSongs()
         {
-            return new List<string>(requests.MissingSongs.Keys);
-        }
-
-        internal static MissingRequest GetMissing(string songID)
-        {
-            return requests.MissingSongs[songID];
+            return requests.MissingSongs;
         }
 
         internal static void LoadQueue()
@@ -516,19 +618,16 @@ namespace AudicaModding
                     // if the user deleted a requested map that request
                     // will be missing but that should be enough of a niche
                     // case that we can ignore it
-                    List<AvailableRequest> availableSongs = new List<AvailableRequest>();
+                    List<Request> availableSongs = new List<Request>();
                     for (int i = 0; i < SongList.I.songs.Count; i++)
                     {
-                        AvailableRequest newReq = new AvailableRequest();
-                        newReq.SongID           = SongList.I.songs[i].songID;
-                        if (requests.AvailableSongs.Contains(newReq))
+                        foreach (Request req in requests.AvailableSongs)
                         {
-                            // comparison uses only the SongID, so we can save 
-                            // some time by only adding the rest now
-                            newReq.Title  = SongList.I.songs[i].title;
-                            newReq.Artist = SongList.I.songs[i].artist;
-                            newReq.Mapper = SongList.I.songs[i].author;
-                            availableSongs.Add(newReq);
+                            if (req.SongID == SongList.I.songs[i].songID)
+                            {
+                                availableSongs.Add(req);
+                                break;
+                            }
                         }
                     }
                     requests.AvailableSongs = availableSongs;
@@ -547,35 +646,26 @@ namespace AudicaModding
     [Serializable]
     public class RequestQueue
     {
-        public Dictionary<string, MissingRequest> MissingSongs   = new Dictionary<string, MissingRequest>();
-        public List<AvailableRequest>             AvailableSongs = new List<AvailableRequest>();
-    }
-
-    public class Request
-    {
-        public string SongID;
-        public string Title;
-        public string Artist;
-        public string Mapper;
+        public List<MissingRequest> MissingSongs   = new List<MissingRequest>();
+        public List<Request>        AvailableSongs = new List<Request>();
     }
 
     [Serializable]
-    public class MissingRequest : Request
+    public class Request : IEquatable<Request>
     {
-        public string DownloadURL;
-        public string PreviewURL;
-    }
-
-    [Serializable]
-    public class AvailableRequest : Request, IEquatable<AvailableRequest>
-    {
+        public string   SongID;
+        public string   Title;
+        public string   Artist;
+        public string   Mapper;
+        public string   RequestedBy;
+        public DateTime RequestedAt;
 
         public override bool Equals(object obj)
         {
-            return Equals(obj as AvailableRequest);
+            return Equals(obj as Request);
         }
 
-        public bool Equals(AvailableRequest other)
+        public bool Equals(Request other)
         {
             if (other == null)
             {
@@ -589,6 +679,13 @@ namespace AudicaModding
         {
             return base.GetHashCode();
         }
+    }
+
+    [Serializable]
+    public class MissingRequest : Request
+    {
+        public string DownloadURL;
+        public string PreviewURL;
     }
 }
 

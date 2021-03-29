@@ -85,7 +85,7 @@ namespace AudicaModding
                     __result.Clear();
                     __instance.songSelectHeaderItems.mItems[0].titleLabel.text = "Song Requests";
 
-                    foreach (AvailableRequest req in SongRequests.GetRequests())
+                    foreach (Request req in SongRequests.GetRequests())
                     {
                         __result.Add(req.SongID);
                     }
@@ -117,12 +117,18 @@ namespace AudicaModding
         {
             private static void Postfix(AudioDriver __instance)
             {
-                foreach (AvailableRequest req in SongRequests.GetRequests())
+                Request match = null;
+                foreach (Request req in SongRequests.GetRequests())
                 {
                     if (req.SongID == SongRequests.selectedSong.songID)
                     {
-                        SongRequests.RemoveRequest(req.SongID);
+                        match = req;
+                        break;
                     }
+                }
+                if (match != null)
+                {
+                    SongRequests.RemoveRequest(match);
                 }
             }
         }

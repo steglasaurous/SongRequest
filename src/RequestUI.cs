@@ -94,7 +94,7 @@ namespace AudicaModding
             if (buttonText == null)
                 return;
 
-            List<string> missingSongs = SongRequests.GetMissingSongs();
+            List<MissingRequest> missingSongs = SongRequests.GetMissingSongs();
 
             if (SongRequests.GetRequests().Count == 0 && missingSongs.Count == 0)
             {
@@ -284,7 +284,7 @@ namespace AudicaModding
         {
             result.Clear();
 
-            foreach (AvailableRequest req in SongRequests.GetRequests())
+            foreach (Request req in SongRequests.GetRequests())
             {
                 result.Add(req.SongID);
             }
