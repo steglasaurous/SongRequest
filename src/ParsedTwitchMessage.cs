@@ -16,6 +16,7 @@ namespace AudicaModding
         public string Id          = "";
         public string Message     = "";
         public string Mod         = "";
+        public string Broadcaster = "";
         public string RoomId      = "";
         public string TmiSentTs   = "";
         public string User        = "";
@@ -90,8 +91,8 @@ namespace AudicaModding
                         UserId = str.Replace("user-id=", "");
                     }
                 }
-                if (Badges.Contains("broadcaster")) // make sure the broadcaster is also counted as having mod privileges
-                    Mod = "1";
+                if (Badges.Contains("broadcaster"))
+                    Broadcaster = "1";
             }
         }
     }

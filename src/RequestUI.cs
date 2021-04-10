@@ -169,6 +169,22 @@ namespace AudicaModding
             return ((FilterPanel.Filter)getFilter()).IsActive;
         }
 
+        public static void EnableQueue(bool enable)
+        {
+            if (enable)
+            {
+                SongRequests.requestsEnabled = true;
+                if (queueOnOffButtonText != null)
+                    queueOnOffButtonText.text = GetQueueOnOffText();
+            }
+            else
+            {
+                SongRequests.requestsEnabled = false;
+                if (queueOnOffButtonText != null)
+                    queueOnOffButtonText.text = GetQueueOnOffText();
+            }
+        }
+
         private static GameObject CreateButton(GameObject buttonPrefab, string label, System.Action onHit, Vector3 position, Vector3 scale)
         {
             GameObject buttonObject = Object.Instantiate(buttonPrefab, buttonPrefab.transform.parent);
@@ -309,16 +325,7 @@ namespace AudicaModding
 
         private static void OnQueueOnOffShot()
         {
-            if (SongRequests.requestsEnabled)
-            {
-                SongRequests.requestsEnabled = false;
-                queueOnOffButtonText.text    = GetQueueOnOffText();
-            }
-            else
-            {
-                SongRequests.requestsEnabled = true;
-                queueOnOffButtonText.text    = GetQueueOnOffText();
-            }
+            EnableQueue(!SongRequests.requestsEnabled);
         }
 
         private static string GetQueueOnOffText()

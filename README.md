@@ -33,6 +33,9 @@ Use **!oops** to remove your latest request in case you don't want to keep it.
 |!remove *title* -artist *artist*                  |!remove MONSTER -artist REOL             | Remove MONSTER by REOL                          |
 |!remove *title* - artist *artist* -mapper *mapper*|!remove Man -artist Rihanna -mapper Draco| Remove Man Down by Rihanna, mapped by DeadDraco |
 
+They can also requests songs with **!asr** even when the queue is closed and open/close the queue using **!enableQueue** or **!disable Queue**, respectively.
+If the ModSettings mod is installed, the special mod privileges can be individually en-/disabled in the settings. They are enabled by default.
+
 ## Installation
 * Download latest release from [here](https://github.com/Alternity156/SongRequest/releases)
 * Save the .dll file to [YourAudicaFolder]\Mods

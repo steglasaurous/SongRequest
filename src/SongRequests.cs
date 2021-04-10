@@ -6,7 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 
-[assembly: MelonOptionalDependencies("SongBrowser")]
+[assembly: MelonOptionalDependencies("SongBrowser", "ModSettings")]
 
 namespace AudicaModding
 {
@@ -39,6 +39,13 @@ namespace AudicaModding
             {
                 InitSongBrowserIntegration();
             }
+
+            Config.RegisterConfig();
+        }
+
+        public override void OnModSettingsApplied()
+        {
+            Config.OnModSettingsApplied();
         }
 
         public static int GetActiveWebSearchCount()
@@ -442,10 +449,10 @@ namespace AudicaModding
             if (msg.Length > 2 && msg.Substring(0, 1) == "!") // length has to be at least 2: ! and at least one command letter
             {
                 string command   = msg.Replace("!", "").Split(" ".ToCharArray())[0];
-                command          = command.ToLower();
                 string arguments = msg.Replace("!" + command + " ", "");
+                command          = command.ToLower();
 
-                if (command == "asr" && requestsEnabled)
+                if (command == "asr" && (requestsEnabled || twitchMessage.Mod == "1" && Config.LetModsIgnoreQueueStatus || twitchMessage.Broadcaster == "1"))
                 {
                     MelonLogger.Log("!asr requested with query \"" + arguments + "\"");
 
@@ -456,7 +463,7 @@ namespace AudicaModding
                         ProcessQueue();
                     }
                 }
-                else if ((command == "remove" || command == "yeet") && twitchMessage.Mod == "1")
+                else if ((command == "remove" || command == "yeet") && (twitchMessage.Mod == "1" && Config.LetModsRemoveRequests || twitchMessage.Broadcaster == "1"))
                 {
                     MelonLogger.Log("!remove requested with query \"" + arguments + "\"");
                     ProcessRemoval(arguments);
@@ -465,6 +472,16 @@ namespace AudicaModding
                 {
                     MelonLogger.Log("!oops requested");
                     ProcessOops(twitchMessage.UserId);
+                }
+                else if (command == "enablequeue" && requestsEnabled == false &&
+                         (Config.LetModsChangeQueueStatus && twitchMessage.Mod == "1" || twitchMessage.Broadcaster == "1"))
+                {
+                    RequestUI.EnableQueue(true);
+                }
+                else if (command == "disablequeue" && requestsEnabled == true &&
+                         (Config.LetModsChangeQueueStatus && twitchMessage.Mod == "1" || twitchMessage.Broadcaster == "1"))
+                {
+                    RequestUI.EnableQueue(false);
                 }
             }
         }
