@@ -441,7 +441,8 @@ namespace AudicaModding
             string msg = twitchMessage.Message;
             if (msg.Length > 2 && msg.Substring(0, 1) == "!") // length has to be at least 2: ! and at least one command letter
             {
-                string command = msg.Replace("!", "").Split(" ".ToCharArray())[0];
+                string command   = msg.Replace("!", "").Split(" ".ToCharArray())[0];
+                command          = command.ToLower();
                 string arguments = msg.Replace("!" + command + " ", "");
 
                 if (command == "asr" && requestsEnabled)
