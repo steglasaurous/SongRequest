@@ -106,7 +106,7 @@ namespace AudicaModding
             for (int i = 0; i < SongList.I.songs.Count; i++)
             {
                 SongList.SongData currentSong = SongList.I.songs[i];
-                Request req = new Request
+                SongInfo match = new SongInfo
                 {
                     SongID = currentSong.songID,
                     Title  = currentSong.title,
@@ -114,7 +114,7 @@ namespace AudicaModding
                     Mapper = currentSong.author
                 };
 
-                if (LookForMatch(data, req, ref foundAny, ref foundBetter, ref foundExactMatch))
+                if (LookForMatch(data, match, ref foundAny, ref foundBetter, ref foundExactMatch))
                 {
                     song = currentSong;
                     if (foundExactMatch)
@@ -123,21 +123,21 @@ namespace AudicaModding
             }
             return song;
         }
-        private static bool LookForMatch(QueryData query, Request req,
+        private static bool LookForMatch(QueryData query, SongInfo match,
                                          ref bool foundAny, ref bool foundBetter, ref bool foundExact)
         {
-            bool hasArtist = req.Artist == null ||
-                             query.Artist == null || req.Artist.ToLowerInvariant().Replace(" ", "").Contains(query.Artist);
-            bool hasMapper = req.Mapper == null ||
-                             query.Mapper == null || req.Mapper.ToLowerInvariant().Replace(" ", "").Contains(query.Mapper);
-            bool hasTitle = req.Title.ToLowerInvariant().Contains(query.Title) ||
-                             req.SongID.ToLowerInvariant().Contains(query.Title.Replace(" ", ""));
+            bool hasArtist = match.Artist == null ||
+                             query.Artist == null || match.Artist.ToLowerInvariant().Replace(" ", "").Contains(query.Artist);
+            bool hasMapper = match.Mapper == null ||
+                             query.Mapper == null || match.Mapper.ToLowerInvariant().Replace(" ", "").Contains(query.Mapper);
+            bool hasTitle  = match.Title.ToLowerInvariant().Contains(query.Title) ||
+                             match.SongID.ToLowerInvariant().Contains(query.Title.Replace(" ", ""));
 
             if ((hasArtist && hasMapper && hasTitle) ||
                 (query.Title == "" && query.Artist != null && hasArtist) ||
                 (query.Title == "" && query.Mapper != null && hasMapper))
             {
-                return LookForMatch(query.Title, req.Title, ref foundAny, ref foundBetter, ref foundExact);
+                return LookForMatch(query.Title, match.Title, ref foundAny, ref foundBetter, ref foundExact);
             }
             return false;
         }
@@ -222,7 +222,10 @@ namespace AudicaModding
             {
                 search = data.Mapper;
             }
-            webSearchQueryData.Add(search, data);
+            if (!webSearchQueryData.ContainsKey(search))
+            {
+                webSearchQueryData.Add(search, data);
+            }
             MelonCoroutines.Start(SongDownloader.DoSongWebSearch(search, ProcessWebSearchResult, DifficultyFilter.All));
         }
         private static void ProcessWebSearchResult(string query, APISongList response)
@@ -237,14 +240,15 @@ namespace AudicaModding
                 bool foundExact  = false;
                 foreach (Song s in response.songs)
                 {
-                    Request req = new Request
+                    SongInfo info = new SongInfo()
                     {
                         SongID = s.song_id,
                         Title  = s.title,
                         Artist = s.artist,
                         Mapper = s.author
                     };
-                    if (LookForMatch(data, req, ref foundAny, ref foundBetter, ref foundExact))
+
+                    if (LookForMatch(data, info, ref foundAny, ref foundBetter, ref foundExact))
                     {
                         bestMatch = s;
                         if (foundExact)
@@ -327,7 +331,7 @@ namespace AudicaModding
             {
                 Request req = requests.AvailableSongs[i];
 
-                if (LookForMatch(query, req, ref foundAny, ref foundBetter, ref foundExactMatch))
+                if (LookForMatch(query, new SongInfo(req), ref foundAny, ref foundBetter, ref foundExactMatch))
                 {
                     matchIdx = i;
                     if (foundExactMatch)
@@ -349,7 +353,7 @@ namespace AudicaModding
                 {
                     MissingRequest req = requests.MissingSongs[i];
 
-                    if (LookForMatch(query, req, ref foundAny, ref foundBetter, ref foundExactMatch))
+                    if (LookForMatch(query, new SongInfo(req), ref foundAny, ref foundBetter, ref foundExactMatch))
                     {
                         matchIdx = i;
                         if (foundExactMatch)
@@ -704,6 +708,25 @@ namespace AudicaModding
     {
         public string DownloadURL;
         public string PreviewURL;
+    }
+
+    internal class SongInfo
+    {
+        public string SongID;
+        public string Title;
+        public string Artist;
+        public string Mapper;
+
+        public SongInfo()
+        { }
+
+        public SongInfo(Request req)
+        {
+            SongID = req.SongID;
+            Title = req.Title;
+            Artist = req.Artist;
+            Mapper = req.Mapper;
+        }
     }
 }
 

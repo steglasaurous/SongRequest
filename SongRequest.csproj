@@ -187,6 +187,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="src\Config.cs" />
     <Compile Include="src\Hooks.cs" />
     <Compile Include="src\MissingSongsUI.cs" />
     <Compile Include="src\RequestUI.cs" />

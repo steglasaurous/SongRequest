@@ -71,8 +71,7 @@ namespace AudicaModding
 
 			if (needsSongListRefresh)
 			{
-				MenuState.I.GoToMainPage();
-				SongBrowser.ReloadSongList(false);
+				LeaveAndReload();
 			}
 			else
 			{
@@ -158,6 +157,8 @@ namespace AudicaModding
 
 		private static void StartDownload(string songID, string downloadURL, TextMeshPro tmp)
 		{
+			backButton.SetInteractable(false);
+
 			downloadCount++;
 			MissingRequest req = new MissingRequest() { SongID = songID };
 			missingSongs.Remove(req); // remove from local list so we don't queue it up again if Download All is used
@@ -179,15 +180,24 @@ namespace AudicaModding
 				missingSongs.Remove(req); // remove from local copy
 				SongRequests.RemoveMissing(req); // remove from main list
 			}
-
+			backButton.SetInteractable(true);
 		}
 
 		private static void OnDownloadAll()
 		{
+			downloadAllButton.SetActive(false);
+			backButton.SetInteractable(false);
+
+			CleanUpPage(songItemMenu); 
+			
+			var textBlock = songItemMenu.AddTextBlock(0, "Downloading...");
+			var TMP       = textBlock.transform.GetChild(0).GetComponent<TextMeshPro>();
+			TMP.fontSizeMax = 32;
+			TMP.fontSizeMin = 17;
+			songItemMenu.scrollable.AddRow(textBlock.gameObject);
+
 			lookingAtMissingSongs = false;
 			needsSongListRefresh  = false;
-			downloadAllButton.SetActive(false);
-			MenuState.I.GoToMainPage();
 			KataConfig.I.CreateDebugText("Downloading missing songs...", new Vector3(0f, -1f, 5f), 5f, null, false, 0.2f);
 			MelonCoroutines.Start(DownloadAll());
 		}
@@ -217,8 +227,22 @@ namespace AudicaModding
 
 			if (downloadCount == 0)
 			{
-				SongBrowser.ReloadSongList(false);
+				LeaveAndReload();
 			}
+		}
+
+		private static void LeaveAndReload()
+		{
+			// make sure people can't shoot this
+			GunButton soloButton = GameObject.Find("menu/ShellPage_Main/page/ShellPanel_Center/Solo/Button").GetComponent<GunButton>();
+			soloButton.SetInteractable(false);
+
+			MenuState.I.GoToMainPage();
+			SongBrowser.ReloadSongList(false);
+			soloButton.SetInteractable(true);
+
+			// re-enable back button
+			backButton.SetInteractable(true);
 		}
 
 		private static void CleanUpPage(OptionsMenu optionsMenu)
