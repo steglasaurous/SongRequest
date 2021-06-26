@@ -13,13 +13,13 @@ namespace AudicaModding
 
         public static void RegisterConfig()
         {
-            MelonPrefs.RegisterBool(Category, nameof(LetModsIgnoreQueueStatus), true,
+            MelonPreferences.CreateEntry(Category, nameof(LetModsIgnoreQueueStatus), true,
                                     "Allows mods to add songs to the queue even if queue is closed.");
 
-            MelonPrefs.RegisterBool(Category, nameof(LetModsChangeQueueStatus), true,
+            MelonPreferences.CreateEntry(Category, nameof(LetModsChangeQueueStatus), true,
                                     "Allows mods to open/close queue.");
 
-            MelonPrefs.RegisterBool(Category, nameof(LetModsRemoveRequests), true,
+            MelonPreferences.CreateEntry(Category, nameof(LetModsRemoveRequests), true,
                                     "Allows mods to remove requests from the queue.");
 
             OnModSettingsApplied();
@@ -30,7 +30,7 @@ namespace AudicaModding
             foreach (var fieldInfo in typeof(Config).GetFields(BindingFlags.Static | BindingFlags.Public))
             {
                 if (fieldInfo.FieldType == typeof(bool))
-                    fieldInfo.SetValue(null, MelonPrefs.GetBool(Category, fieldInfo.Name));
+                    fieldInfo.SetValue(null, MelonPreferences.GetEntryValue<bool>(Category, fieldInfo.Name));
             }
         }
     }

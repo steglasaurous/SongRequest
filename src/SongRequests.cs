@@ -15,9 +15,9 @@ namespace AudicaModding
         public static class BuildInfo
         {
             public const string Name = "SongRequest";  // Name of the Mod.  (MUST BE SET)
-            public const string Author = "Alternity"; // Author of the Mod.  (Set as null if none)
+            public const string Author = "Alternity and Silzoid"; // Author of the Mod.  (Set as null if none)
             public const string Company = null; // Company that made the Mod.  (Set as null if none)
-            public const string Version = "1.2.1"; // Version of the Mod.  (MUST BE SET)
+            public const string Version = "2.0.0"; // Version of the Mod.  (MUST BE SET)
             public const string DownloadLink = null; // Download Link for the Mod.  (Set as null if none)
         }
 
@@ -39,11 +39,15 @@ namespace AudicaModding
             {
                 InitSongBrowserIntegration();
             }
+            else
+            {
+                MelonLogger.Msg("No compatible version of SongBrowser found. Searching for and downloading of missing songs is disabled.");
+            }
 
             Config.RegisterConfig();
         }
 
-        public override void OnModSettingsApplied()
+        public override void OnPreferencesSaved()
         {
             Config.OnModSettingsApplied();
         }
@@ -56,7 +60,7 @@ namespace AudicaModding
         private void InitSongBrowserIntegration()
         {
             hasCompatibleSongBrowser = true;
-            MelonLogger.Log("Song Browser is installed. Enabling integration");
+            MelonLogger.Msg("Song Browser is installed. Enabling integration");
             RequestUI.Register();
 
             // make sure queue is processed after song list reload
@@ -69,12 +73,9 @@ namespace AudicaModding
         { 
             if (mod.Info.SystemType.Name == nameof(SongBrowser))
             {
-                string[] versionInfo = mod.Info.Version.Split('.');
-                int major = int.Parse(versionInfo[0]);
-                int minor = int.Parse(versionInfo[1]);
-                int patch = int.Parse(versionInfo[2]);
-                if (major > 2 || (major == 2 && (minor > 4 || minor == 4 && patch >= 1)))
-                    return true;
+                Version browserVersion       = new Version(mod.Info.Version);
+                Version lastSupportedVersion = new Version("3.0.0");
+                return browserVersion.CompareTo(lastSupportedVersion) >= 0;
             }
             return false;
         }
@@ -177,7 +178,7 @@ namespace AudicaModding
         public static void ProcessQueue()
         {
             bool addedAny = false;
-            MelonLogger.Log(unprocessedRequests.Count + " in queue.");
+            MelonLogger.Msg(unprocessedRequests.Count + " in queue.");
             
             if (unprocessedRequests.Count != 0)
             {
@@ -190,7 +191,7 @@ namespace AudicaModding
                     {
                         // if we have web search we want to make sure we prioritize exact matches
                         // over partial local ones
-                        MelonLogger.Log("Result: " + result.songID);
+                        MelonLogger.Msg("Result: " + result.songID);
                         if (AddRequest(result, data.RequestedBy, data.RequestedAt))
                             addedAny = true;
                     }
@@ -200,7 +201,7 @@ namespace AudicaModding
                     }
                     else
                     {
-                        MelonLogger.Log($"Found no match for \"{req.Query}\"");
+                        MelonLogger.Msg($"Found no match for \"{req.Query}\"");
                     }
                 }
                 unprocessedRequests.Clear();
@@ -264,18 +265,18 @@ namespace AudicaModding
                     SongList.SongData s         = SearchSong(matchData, out bool isExactMatch);
                     if (isExactMatch)
                     {
-                        MelonLogger.Log("Result: " + s.songID);
+                        MelonLogger.Msg("Result: " + s.songID);
                         if (AddRequest(s, data.RequestedBy, data.RequestedAt))
                             addedLocalMatch = true;
                     }
                     else if (AddMissing(bestMatch, data.RequestedBy, data.RequestedAt))
                     {
-                        MelonLogger.Log("Result (missing): " + bestMatch.song_id);
+                        MelonLogger.Msg("Result (missing): " + bestMatch.song_id);
                     }
                 }
                 else
                 {
-                    MelonLogger.Log($"Found no match for \"{data.FullQuery}\"");
+                    MelonLogger.Msg($"Found no match for \"{data.FullQuery}\"");
                 }
             }
             else
@@ -285,13 +286,13 @@ namespace AudicaModding
                 SongList.SongData s = SearchSong(data, out bool _);
                 if (s != null)
                 {
-                    MelonLogger.Log("Result: " + s.songID);
+                    MelonLogger.Msg("Result: " + s.songID);
                     if (AddRequest(s, data.RequestedBy, data.RequestedAt))
                         addedLocalMatch = true;
                 }
                 else
                 {
-                    MelonLogger.Log($"Found no match for \"{data.FullQuery}\"");
+                    MelonLogger.Msg($"Found no match for \"{data.FullQuery}\"");
                 }
             }
 
@@ -341,7 +342,7 @@ namespace AudicaModding
             if (matchIdx != -1)
             {
                 RemoveRequest(requests.AvailableSongs[matchIdx]);
-                MelonLogger.Log("Removed \"" + arguments + "\" from available requests");
+                MelonLogger.Msg("Removed \"" + arguments + "\" from available requests");
                 if (MenuState.GetState() == MenuState.State.SongPage)
                 {
                     RequestUI.UpdateFilter();
@@ -363,7 +364,7 @@ namespace AudicaModding
                 if (matchIdx != -1)
                 {
                     RemoveMissing(requests.MissingSongs[matchIdx]);
-                    MelonLogger.Log("Removed \"" + arguments + "\" from missing requests");
+                    MelonLogger.Msg("Removed \"" + arguments + "\" from missing requests");
                 }
             }
             if (matchIdx != -1 && MenuState.GetState() == MenuState.State.SongPage)
@@ -381,7 +382,7 @@ namespace AudicaModding
             for (int i = requests.AvailableSongs.Count - 1; i >= 0; i--)
             {
                 Request req = requests.AvailableSongs[i];
-                MelonLogger.Log($"{userId} vs {req.RequestedBy}");
+                MelonLogger.Msg($"{userId} vs {req.RequestedBy}");
                 if (req.RequestedBy == userId)
                 {
                     availableMatchIdx = i;
@@ -392,7 +393,7 @@ namespace AudicaModding
             for (int i = requests.MissingSongs.Count - 1; i >= 0; i--)
             {
                 MissingRequest req = requests.MissingSongs[i];
-                MelonLogger.Log($"{userId} vs {req.RequestedBy}");
+                MelonLogger.Msg($"{userId} vs {req.RequestedBy}");
 
                 if (req.RequestedBy == userId)
                 {
@@ -410,7 +411,7 @@ namespace AudicaModding
                 {
                     if (available.RequestedAt > missing.RequestedAt)
                     {
-                        MelonLogger.Log($"Removed {userId}'s latest request {available.Title} from available requests");
+                        MelonLogger.Msg($"Removed {userId}'s latest request {available.Title} from available requests");
                         RemoveRequest(available);
 
                         if (MenuState.GetState() == MenuState.State.SongPage)
@@ -420,13 +421,13 @@ namespace AudicaModding
                     }
                     else
                     {
-                        MelonLogger.Log($"Removed {userId}'s latest request {missing.Title} from missing requests");
+                        MelonLogger.Msg($"Removed {userId}'s latest request {missing.Title} from missing requests");
                         RemoveMissing(missing);
                     }
                 }
                 else if (available != null)
                 {
-                    MelonLogger.Log($"Removed {userId}'s latest request {available.Title} from available requests");
+                    MelonLogger.Msg($"Removed {userId}'s latest request {available.Title} from available requests");
                     RemoveRequest(available);
 
                     if (MenuState.GetState() == MenuState.State.SongPage)
@@ -436,7 +437,7 @@ namespace AudicaModding
                 }
                 else
                 {
-                    MelonLogger.Log($"Removed {userId}'s latest request {missing.Title} from missing requests");
+                    MelonLogger.Msg($"Removed {userId}'s latest request {missing.Title} from missing requests");
                     RemoveMissing(missing);
                 }
 
@@ -458,7 +459,7 @@ namespace AudicaModding
 
                 if (command == "asr" && (requestsEnabled || twitchMessage.Mod == "1" && Config.LetModsIgnoreQueueStatus || twitchMessage.Broadcaster == "1"))
                 {
-                    MelonLogger.Log("!asr requested with query \"" + arguments + "\"");
+                    MelonLogger.Msg("!asr requested with query \"" + arguments + "\"");
 
                     unprocessedRequests.Add(new RequestData(arguments, twitchMessage.UserId, DateTime.Now));
 
@@ -469,12 +470,12 @@ namespace AudicaModding
                 }
                 else if ((command == "remove" || command == "yeet") && (twitchMessage.Mod == "1" && Config.LetModsRemoveRequests || twitchMessage.Broadcaster == "1"))
                 {
-                    MelonLogger.Log("!remove requested with query \"" + arguments + "\"");
+                    MelonLogger.Msg("!remove requested with query \"" + arguments + "\"");
                     ProcessRemoval(arguments);
                 }
                 else if (command == "oops")
                 {
-                    MelonLogger.Log("!oops requested");
+                    MelonLogger.Msg("!oops requested");
                     ProcessOops(twitchMessage.UserId);
                 }
                 else if (command == "enablequeue" && requestsEnabled == false &&
@@ -656,7 +657,7 @@ namespace AudicaModding
                 }
                 catch
                 {
-                    MelonLogger.Log("Unable to load queue");
+                    MelonLogger.Msg("Unable to load queue");
                 }
 
                 SaveQueue();

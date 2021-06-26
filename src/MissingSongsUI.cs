@@ -237,12 +237,12 @@ namespace AudicaModding
 			GunButton soloButton = GameObject.Find("menu/ShellPage_Main/page/ShellPanel_Center/Solo/Button").GetComponent<GunButton>();
 			soloButton.SetInteractable(false);
 
+			// re-enable back button
+			backButton.SetInteractable(true);
+
 			MenuState.I.GoToMainPage();
 			SongBrowser.ReloadSongList(false);
 			soloButton.SetInteractable(true);
-
-			// re-enable back button
-			backButton.SetInteractable(true);
 		}
 
 		private static void CleanUpPage(OptionsMenu optionsMenu)

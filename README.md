@@ -37,13 +37,13 @@ They can also requests songs with **!asr** even when the queue is closed and ope
 If the ModSettings mod is installed, the special mod privileges can be individually en-/disabled in the settings. They are enabled by default.
 
 ## Installation
-* Download latest release from [here](https://github.com/Alternity156/SongRequest/releases)
-* Save the .dll file to [YourAudicaFolder]\Mods
+* Download latest release from [here](https://github.com/Silzoid/SongRequest/releases/latest) or use the [Mod Browser](https://github.com/Contiinuum/ModBrowser/releases/latest) mod
+* If you downloaded the latest release manually, save the .dll file to [YourAudicaFolder]\Mods
 * Enable the in-game twitch chat
   * Go to Settings - Spectator Cam
   * Scroll to the *Twitch Chat View* section
   * Enable *Twitch Chat View*
   * Enter the name of your channel in *Twitch Channel:*
-* Optionally: Install the [SongBrowser mod](https://github.com/octoberU/SongBrowser) version 2.4.1 or newer to enable requests for custom songs that haven't been downloaded yet
+* Optionally: Install the [SongBrowser mod](https://github.com/Silzoid/SongBrowser/releases/latest) version 2.4.1 or newer to enable requests for custom songs that haven't been downloaded yet
 
 The queue is preserved when the game is closed or crashes and will be available on next launch.
