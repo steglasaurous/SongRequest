@@ -3,9 +3,7 @@
 Allows viewers to request songs from the streamer's local library and, when used with SongBrowser version 2.3.2 or newer, all published custom songs.
 
 ## Use
-Find a song you want to request using one of these:
-* [BeastSaber Audica Song List](https://bsaber.com/category/audica/)
-* [Audica Wiki](http://www.audica.wiki/audicawiki/index.php/Custom_Songs)
+Find a song you want to request [here](https://maudica.com/).
 
 Then use a variation of the **!asr** command in twitch chat:
 
