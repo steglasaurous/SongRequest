@@ -576,7 +576,7 @@ namespace AudicaModding
         {
             MissingRequest req = new MissingRequest();
             req.SongID         = s.song_id;
-            if (!requests.AvailableSongs.Contains(req))
+            if (!requests.MissingSongs.Contains(req))
             {
                 // comparison uses only the SongID, so we can save 
                 // some time by only adding the rest now
@@ -694,7 +694,6 @@ namespace AudicaModding
             {
                 return false;
             }
-
             return SongID == other.SongID;
         }
 

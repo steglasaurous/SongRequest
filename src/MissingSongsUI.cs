@@ -16,6 +16,7 @@ namespace AudicaModding
 		private static OptionsMenu songItemMenu;
 		private static GunButton   backButton;
 		private static GameObject  downloadAllButton;
+		private static GunButton   downloadAllGunButton;
 
 		private static List<MissingRequest> missingSongs = null;
 		private static int downloadCount = 0;
@@ -46,13 +47,13 @@ namespace AudicaModding
 				TextMeshPro buttonText = downloadAllButton.GetComponentInChildren<TextMeshPro>();
 				buttonText.text        = "Download all";
 
-				Action    onHit   = new Action(() => { OnDownloadAll(); });
-				GunButton btn     = downloadAllButton.GetComponentInChildren<GunButton>();
-				btn.destroyOnShot = false;
-				btn.disableOnShot = false;
-				btn.SetSelected(false);
-				btn.onHitEvent = new UnityEvent();
-				btn.onHitEvent.AddListener(onHit);
+				Action    onHit                       = new Action(() => { OnDownloadAll(); });
+				downloadAllGunButton                  = downloadAllButton.GetComponentInChildren<GunButton>();
+				downloadAllGunButton.destroyOnShot    = false;
+				downloadAllGunButton.disableOnShot    = false;
+				downloadAllGunButton.onHitEvent       = new UnityEvent();
+				downloadAllGunButton.onHitEvent.AddListener(onHit);
+				downloadAllGunButton.SetSelected(false);
 			}
 			else
             {
@@ -99,6 +100,11 @@ namespace AudicaModding
 			foreach (MissingRequest req in missingSongs)
 			{
 				CreateSongItem(req, optionsMenu);
+			}
+
+			if (missingSongs.Count == 0)
+			{
+				downloadAllGunButton.SetInteractable(false);
 			}
 		}
 
@@ -185,6 +191,11 @@ namespace AudicaModding
 
 		private static void OnDownloadAll()
 		{
+			if (missingSongs.Count == 0)
+            {
+				return;
+            }
+
 			downloadAllButton.SetActive(false);
 			backButton.SetInteractable(false);
 
