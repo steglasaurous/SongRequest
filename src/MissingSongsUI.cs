@@ -106,6 +106,10 @@ namespace AudicaModding
 			{
 				downloadAllGunButton.SetInteractable(false);
 			}
+			else
+            {
+				downloadAllGunButton.SetInteractable(true);
+            }
 		}
 
 		private static void CreateSongItem(MissingRequest song, OptionsMenu optionsMenu)
@@ -248,8 +252,9 @@ namespace AudicaModding
 			GunButton soloButton = GameObject.Find("menu/ShellPage_Main/page/ShellPanel_Center/Solo/Button").GetComponent<GunButton>();
 			soloButton.SetInteractable(false);
 
-			// re-enable back button
+			// re-enable buttons
 			backButton.SetInteractable(true);
+			downloadAllGunButton.SetInteractable(true);
 
 			MenuState.I.GoToMainPage();
 			SongBrowser.ReloadSongList(false);
