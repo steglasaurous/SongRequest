@@ -11,8 +11,13 @@ namespace AudicaModding
         public static bool LetModsChangeQueueStatus;
         public static bool LetModsRemoveRequests;
 
+        public static bool AutomaticallyRemoveSongs;
+
         public static void RegisterConfig()
         {
+            MelonPreferences.CreateEntry(Category, nameof(AutomaticallyRemoveSongs), true,
+                                    "Automatically remove a request if it has been played.");
+
             MelonPreferences.CreateEntry(Category, nameof(LetModsIgnoreQueueStatus), true,
                                     "Allows mods to add songs to the queue even if queue is closed.");
 

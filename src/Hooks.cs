@@ -1,8 +1,6 @@
 ﻿using HarmonyLib;
 using System;
 using TwitchChatter;
-using MelonLoader;
-using System.Linq;
 
 namespace AudicaModding
 {
@@ -102,33 +100,31 @@ namespace AudicaModding
                 RequestUI.Initialize();
             }
         }
-
-        [HarmonyPatch(typeof(SongSelectItem), "OnSelect")]
-        private static class PatchOnSelect
+        
+        // clean up requested songs once they've been played or failed
+        [HarmonyPatch(typeof(InGameUI), "SetState", new Type[] { typeof(InGameUI.State), typeof(bool) })]
+        private static class PatchSetInGameUIState
         {
-            private static void Postfix(SongSelectItem __instance)
+            private static void Postfix(InGameUI __instance, InGameUI.State state, bool instant)
             {
-                SongRequests.selectedSong = __instance.mSongData;
-            }
-        }
-
-        [HarmonyPatch(typeof(AudioDriver), "StartPlaying")]
-        private static class PatchPlay
-        {
-            private static void Postfix(AudioDriver __instance)
-            {
-                Request match = null;
-                foreach (Request req in SongRequests.GetRequests())
+                if (state == InGameUI.State.FailedPage || state == InGameUI.State.ResultsPage)
                 {
-                    if (req.SongID == SongRequests.selectedSong.songID)
+                    if (Config.AutomaticallyRemoveSongs)
                     {
-                        match = req;
-                        break;
+                        Request match = null;
+                        foreach (Request req in SongRequests.GetRequests())
+                        {
+                            if (req.SongID == SongDataHolder.I.songData.songID)
+                            {
+                                match = req;
+                                break;
+                            }
+                        }
+                        if (match != null)
+                        {
+                            SongRequests.RemoveRequest(match);
+                        }
                     }
-                }
-                if (match != null)
-                {
-                    SongRequests.RemoveRequest(match);
                 }
             }
         }

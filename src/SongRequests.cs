@@ -23,7 +23,6 @@ namespace AudicaModding
 
         internal static bool loadComplete             = false;
         internal static bool hasCompatibleSongBrowser = false;
-        internal static SongList.SongData selectedSong;
 
         internal static bool requestsEnabled = true;
 
