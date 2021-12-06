@@ -17,7 +17,7 @@ namespace AudicaModding
             public const string Name = "SongRequest";  // Name of the Mod.  (MUST BE SET)
             public const string Author = "Alternity and Silzoid"; // Author of the Mod.  (Set as null if none)
             public const string Company = null; // Company that made the Mod.  (Set as null if none)
-            public const string Version = "2.0.1"; // Version of the Mod.  (MUST BE SET)
+            public const string Version = "2.0.2"; // Version of the Mod.  (MUST BE SET)
             public const string DownloadLink = null; // Download Link for the Mod.  (Set as null if none)
         }
 
