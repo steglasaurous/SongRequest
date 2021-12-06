@@ -3,9 +3,13 @@
 Allows viewers to request songs from the streamer's local library and, when used with SongBrowser version 2.3.2 or newer, all published custom songs.
 
 ## Use
-Find a song you want to request [here](https://maudica.com/).
+Find a song you want to request [here](https://maudica.com/), then click the twitch symbol in the song's panel to copy the request text to your clipboard. Next, paste that text into twitch chat and send the message to request the song. It will look something like this:
+> !asr -id 744
 
-Then use a variation of the **!asr** command in twitch chat:
+Use **!oops** to remove your latest request in case you don't want to keep it.
+
+## Advanced Use
+Following alternative options are available:
 
 | Command                                       | Example                              | Result                                          |
 |-----------------------------------------------|--------------------------------------|-------------------------------------------------|
@@ -14,13 +18,7 @@ Then use a variation of the **!asr** command in twitch chat:
 |!asr *title* -artist *artist*                  |!asr MONSTER -artist REOL             | Request MONSTER by REOL                         |
 |!asr *title* - artist *artist* -mapper *mapper*|!asr Man -artist Rihanna -mapper Draco| Request Man Down by Rihanna, mapped by DeadDraco|
 
-Note that search is not case sensitive, so `!asr Monster` and `!asr MONSTER` give the same result unless the mapper or artist is explicitly included in the command (the way it is done in the examples above).
-
-Use **!oops** to remove your latest request in case you don't want to keep it.
-
-| Command                                          | Example                                 | Result                                          |
-|--------------------------------------------------|-----------------------------------------|-------------------------------------------------|
-|!oops                                             |!oops                                    | Remove your latest request                      | 
+Note that search is not case sensitive, so `!asr Monster` and `!asr MONSTER` give the same result unless the mapper or artist is explicitly included in the command (the way it is done in the examples above).                      | 
 
 **Mods and the channel owner** can remove any request using **!remove** (comes with the same variations as !asr, so e.g. !remove Monster -mapper Octo).
 
@@ -29,7 +27,7 @@ Use **!oops** to remove your latest request in case you don't want to keep it.
 |!remove *title*                                   |!remove Those Who Fight                  | Remove Those Who Fight Further                  | 
 |!remove *title* -mapper *mapper*                  |!remove Monster -mapper Octo             | Remove Monster mapped by Octo                   |
 |!remove *title* -artist *artist*                  |!remove MONSTER -artist REOL             | Remove MONSTER by REOL                          |
-|!remove *title* - artist *artist* -mapper *mapper*|!remove Man -artist Rihanna -mapper Draco| Remove Man Down by Rihanna, mapped by DeadDraco |
+|!remove *title* -artist *artist* -mapper *mapper* |!remove Man -artist Rihanna -mapper Draco| Remove Man Down by Rihanna, mapped by DeadDraco |
 
 They can also requests songs with **!asr** even when the queue is closed and open/close the queue using **!enableQueue** or **!disable Queue**, respectively.
 If the ModSettings mod is installed, the special mod privileges can be individually en-/disabled in the settings. They are enabled by default.

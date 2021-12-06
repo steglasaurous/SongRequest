@@ -73,7 +73,7 @@ namespace AudicaModding
             if (mod.Info.SystemType.Name == nameof(SongBrowser))
             {
                 Version browserVersion       = new Version(mod.Info.Version);
-                Version lastSupportedVersion = new Version("3.0.0");
+                Version lastSupportedVersion = new Version("3.0.8");
                 return browserVersion.CompareTo(lastSupportedVersion) >= 0;
             }
             return false;
@@ -126,6 +126,14 @@ namespace AudicaModding
         private static bool LookForMatch(QueryData query, SongInfo match,
                                          ref bool foundAny, ref bool foundBetter, ref bool foundExact)
         {
+            if (query.MaudicaID != null) // if we searched via Maudica ID then we know the match is exact
+            {
+                foundAny    = true;
+                foundBetter = true;
+                foundExact  = true;
+                return true;
+            }
+
             bool hasArtist = match.Artist == null ||
                              query.Artist == null || match.Artist.ToLowerInvariant().Replace(" ", "").Contains(query.Artist);
             bool hasMapper = match.Mapper == null ||
@@ -184,23 +192,39 @@ namespace AudicaModding
                 foreach (RequestData req in unprocessedRequests)
                 {
                     QueryData         data   = new QueryData(req);
-                    SongList.SongData result = SearchSong(data, out bool foundExactMatch);
 
-                    if ((!hasCompatibleSongBrowser || foundExactMatch) && result != null)
+                    if (data.MaudicaID != null)
                     {
-                        // if we have web search we want to make sure we prioritize exact matches
-                        // over partial local ones
-                        MelonLogger.Msg("Result: " + result.songID);
-                        if (AddRequest(result, data.RequestedBy, data.RequestedAt))
-                            addedAny = true;
-                    }
-                    else if (hasCompatibleSongBrowser)
-                    {
-                        StartWebSearch(data);
+                        // special case, we definitely need a web-query to identify this one
+                        if (hasCompatibleSongBrowser)
+                        {
+                            SearchID(data);
+                        }
+                        else
+                        {
+                            MelonLogger.Msg("Unable to request by Maudica.com song ID without compatible Song Browser mod.");
+                        }
                     }
                     else
                     {
-                        MelonLogger.Msg($"Found no match for \"{req.Query}\"");
+                        SongList.SongData result = SearchSong(data, out bool foundExactMatch);
+
+                        if ((!hasCompatibleSongBrowser || foundExactMatch) && result != null)
+                        {
+                            // if we have web search we want to make sure we prioritize exact matches
+                            // over partial local ones
+                            MelonLogger.Msg("Result: " + result.songID);
+                            if (AddRequest(result, data.RequestedBy, data.RequestedAt))
+                                addedAny = true;
+                        }
+                        else if (hasCompatibleSongBrowser)
+                        {
+                            StartWebSearch(data);
+                        }
+                        else
+                        {
+                            MelonLogger.Msg($"Found no match for \"{req.Query}\"");
+                        }
                     }
                 }
                 unprocessedRequests.Clear();
@@ -210,6 +234,15 @@ namespace AudicaModding
                 RequestUI.UpdateFilter();
             
             RequestUI.UpdateButtonText();
+        }
+        private static void SearchID(QueryData data)
+        {
+            string search = data.MaudicaID;
+            if (!webSearchQueryData.ContainsKey(search))
+            {
+                webSearchQueryData.Add(search, data);
+            }
+            MelonCoroutines.Start(SongDownloader.DoMaudicaIDSearch(search, ProcessWebSearchResult));
         }
         private static void StartWebSearch(QueryData data)
         {
@@ -512,26 +545,38 @@ namespace AudicaModding
 
                 Artist    = null;
                 Mapper    = null;
+                MaudicaID = null;
                 FullQuery = queryInvariant;
 
                 string modifiedQuery = queryInvariant + "-endQuery";
-                if (queryInvariant.Contains("-artist"))
+                // if an ID is used, it should be possible to convert to int, otherwise it's likely a normal song title
+                if (queryInvariant.Contains("-id ")  &&  int.TryParse(queryInvariant.Replace("-id", "").Trim(), out _))
                 {
-                    // match everything from -artist to the next occurrence of -mapper or -endQuery
-                    Match m        = Regex.Match(modifiedQuery, "-artist.*?(?=-mapper|-endQuery)");
-                    queryInvariant = queryInvariant.Replace(m.Value, ""); // remove artist part from song title
-                    Artist         = m.Value.Replace("-artist", "").Trim();
-                    Artist         = Artist.Replace(" ", "");
+                    // match everything from -id to the next occurrence of a relevant tag
+                    Match m        = Regex.Match(modifiedQuery, "-id.*?(?=-mapper|-artist|-endQuery)");
+                    MaudicaID      = m.Value.Replace("-id", "").Trim();
+                    MaudicaID      = MaudicaID.Replace(" ", "");
                 }
-                if (queryInvariant.Contains("-mapper"))
+                else
                 {
-                    // match everything from -mapper to the next occurrence of -artist or -endQuery
-                    Match m        = Regex.Match(modifiedQuery, "-mapper.*?(?=-artist|-endQuery)");
-                    queryInvariant = queryInvariant.Replace(m.Value, ""); // remove mapper part from song title
-                    Mapper         = m.Value.Replace("-mapper", "").Trim();
-                    Mapper         = Mapper.Replace(" ", "");
+                    if (queryInvariant.Contains("-artist "))
+                    {
+                        // match everything from -artist to the next occurrence of -mapper or -endQuery
+                        Match m        = Regex.Match(modifiedQuery, "-artist.*?(?=-mapper|-endQuery)");
+                        queryInvariant = queryInvariant.Replace(m.Value, ""); // remove artist part from song title
+                        Artist         = m.Value.Replace("-artist", "").Trim();
+                        Artist         = Artist.Replace(" ", "");
+                    }
+                    if (queryInvariant.Contains("-mapper "))
+                    {
+                        // match everything from -mapper to the next occurrence of -artist or -endQuery
+                        Match m        = Regex.Match(modifiedQuery, "-mapper.*?(?=-artist|-endQuery)");
+                        queryInvariant = queryInvariant.Replace(m.Value, ""); // remove mapper part from song title
+                        Mapper         = m.Value.Replace("-mapper", "").Trim();
+                        Mapper         = Mapper.Replace(" ", "");
+                    }
+                    Title = queryInvariant.Trim();
                 }
-                Title       = queryInvariant.Trim();
                 RequestedBy = req.RequestedBy;
                 RequestedAt = req.TimeOfRequest;
             }
@@ -539,6 +584,7 @@ namespace AudicaModding
             public string   Title { get; private set; }
             public string   Artist { get; private set; }
             public string   Mapper { get; private set; }
+            public string   MaudicaID { get; private set; }
             public string   RequestedBy { get; private set; }
             public DateTime RequestedAt { get; private set; }
             public string   FullQuery { get; private set; }
