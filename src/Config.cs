@@ -13,6 +13,11 @@ namespace AudicaModding
 
         public static bool AutomaticallyRemoveSongs;
 
+        public static string TwitchUsername;
+        public static string TwitchAccessToken;
+        public static string TwitchChannel;
+
+
         public static void RegisterConfig()
         {
             MelonPreferences.CreateEntry(Category, nameof(AutomaticallyRemoveSongs), true,
@@ -27,6 +32,15 @@ namespace AudicaModding
             MelonPreferences.CreateEntry(Category, nameof(LetModsRemoveRequests), true,
                                     "Allows mods to remove requests from the queue.");
 
+            MelonPreferences.CreateEntry(Category, nameof(TwitchUsername), "",
+                                    "Twitch Username (used for writing messages back to twitch chat)");
+
+            MelonPreferences.CreateEntry(Category, nameof(TwitchAccessToken), "",
+                                    "Twitch OAuth access token (used for writing messages back to twitch chat)");
+            
+            MelonPreferences.CreateEntry(Category, nameof(TwitchChannel), "",
+                                    "Twitch channel to listen and post messages to.");
+
             OnModSettingsApplied();
         }
 
@@ -36,6 +50,8 @@ namespace AudicaModding
             {
                 if (fieldInfo.FieldType == typeof(bool))
                     fieldInfo.SetValue(null, MelonPreferences.GetEntryValue<bool>(Category, fieldInfo.Name));
+                if (fieldInfo.FieldType == typeof(string) && fieldInfo.Name != nameof(Category))
+                    fieldInfo.SetValue(null, MelonPreferences.GetEntryValue<string>(Category, fieldInfo.Name));
             }
         }
     }
