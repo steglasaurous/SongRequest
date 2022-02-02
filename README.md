@@ -32,6 +32,106 @@ Note that search is not case sensitive, so `!asr Monster` and `!asr MONSTER` giv
 They can also requests songs with **!asr** even when the queue is closed and open/close the queue using **!enableQueue** or **!disable Queue**, respectively.
 If the ModSettings mod is installed, the special mod privileges can be individually en-/disabled in the settings. They are enabled by default.
 
+## AudicaWebsocketServer Integration
+
+Optionally, if the AudicaWebsocketServer mod is installed at v1.1.0 or higher, bot responses will be emitted as 
+websocket events.  
+
+The following events will be emitted:
+
+**SongNotFound**
+
+When an `!asr` request fails to find a song.
+
+```json
+{
+  "eventType": "SongNotFound",
+  "data": {
+    "Title": "badsong",
+    "Artist": null,
+    "Mapper": null,
+    "MaudicaID": null,
+    "RequestedBy": "517290525",
+    "RequestedAt": "2022-02-01T22:58:26.800836-05:00",
+    "FullQuery": "badsong"
+  }
+}
+```
+
+**RemoveSongQueueItem**
+
+When `!yeet` or `!remove` are used to remove a song.
+
+```json
+{
+  "eventType": "RemoveSongQueueItem",
+  "data": {
+    "SongID": "Kepler-SgtCrowMix_38ec025be763601c8295ebeede9314c3",
+    "Title": "Kepler",
+    "Artist": "Pythius",
+    "Mapper": "SgtCrowMix",
+    "RequestedBy": "517290525",
+    "RequestedAt": "0001-01-01T00:00:00"
+  }
+}
+```
+
+**QueueEnabled**
+
+When `!enablequeue` is used to enable the queue.
+
+```json
+{
+  "eventType":"QueueEnabled",
+  "data":""
+}
+```
+
+**QueueDisabled**
+
+```json
+{
+  "eventType":"QueueDisabled",
+  "data":""
+}
+```
+
+**NewSongQueueItem**
+
+When an `!asr` request is successfully added to the queue.
+
+```json
+{
+  "eventType": "NewSongQueueItem",
+  "data": {
+    "SongID": "Kepler-SgtCrowMix_38ec025be763601c8295ebeede9314c3",
+    "Title": "Kepler",
+    "Artist": "Pythius",
+    "Mapper": "SgtCrowMix",
+    "RequestedBy": "517290525",
+    "RequestedAt": "2022-02-01T23:07:20.3035806-05:00"
+  }
+}
+```
+
+**SongAlreadyInQueue**
+
+If the song requested via `!asr` is already in the queue.
+
+```json
+{
+  "eventType": "SongAlreadyInQueue",
+  "data": {
+    "SongID": "Kepler-SgtCrowMix_38ec025be763601c8295ebeede9314c3",
+    "Title": "Kepler",
+    "Artist": null,
+    "Mapper": null,
+    "RequestedBy": null,
+    "RequestedAt": "0001-01-01T00:00:00"
+  }
+}
+```
+
 ## Installation
 * Download latest release from [here](https://github.com/Silzoid/SongRequest/releases/latest) or use the [Mod Browser](https://github.com/Contiinuum/ModBrowser/releases/latest) mod
 * If you downloaded the latest release manually, save the .dll file to [YourAudicaFolder]\Mods
