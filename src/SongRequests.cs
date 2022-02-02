@@ -5,8 +5,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
+using AudicaWebsocketServer;
 
-[assembly: MelonOptionalDependencies("SongBrowser", "ModSettings")]
+[assembly: MelonOptionalDependencies("SongBrowser", "ModSettings", "AudicaWebsocketServer")]
 
 namespace AudicaModding
 {
@@ -17,12 +18,13 @@ namespace AudicaModding
             public const string Name = "SongRequest";  // Name of the Mod.  (MUST BE SET)
             public const string Author = "Alternity and Silzoid"; // Author of the Mod.  (Set as null if none)
             public const string Company = null; // Company that made the Mod.  (Set as null if none)
-            public const string Version = "2.0.2"; // Version of the Mod.  (MUST BE SET)
+            public const string Version = "2.1.0"; // Version of the Mod.  (MUST BE SET)
             public const string DownloadLink = null; // Download Link for the Mod.  (Set as null if none)
         }
 
         internal static bool loadComplete             = false;
         internal static bool hasCompatibleSongBrowser = false;
+        internal static bool hasCompatibleWebsocketServer = false;
 
         internal static bool requestsEnabled = true;
 
@@ -41,6 +43,15 @@ namespace AudicaModding
             else
             {
                 MelonLogger.Msg("No compatible version of SongBrowser found. Searching for and downloading of missing songs is disabled.");
+            }
+
+            if (MelonHandler.Mods.Any(HasCompatibleWebsocketServerMod))
+            {
+                InitWebsocketServerIntegration();
+            }
+            else
+            {
+                MelonLogger.Msg("No compatible version of AudicaWebsocketServer found.  Websocket messages for bot responses disabled.");
             }
 
             Config.RegisterConfig();
@@ -68,13 +79,30 @@ namespace AudicaModding
             SongBrowser.RegisterSongListPostProcessing(ProcessQueueAfterRefresh);
         }
 
+        private void InitWebsocketServerIntegration()
+        {
+            hasCompatibleWebsocketServer = true;
+            MelonLogger.Msg("Websocket Server is installed. Enabling websocket messages for bot requests.");
+        }
+
         private bool HasCompatibleSongBrowser(MelonMod mod)
-        { 
+        {
             if (mod.Info.SystemType.Name == nameof(SongBrowser))
             {
                 Version browserVersion       = new Version(mod.Info.Version);
                 Version lastSupportedVersion = new Version("3.0.8");
                 return browserVersion.CompareTo(lastSupportedVersion) >= 0;
+            }
+            return false;
+        }
+
+        private bool HasCompatibleWebsocketServerMod(MelonMod mod)
+        {
+            if (mod.Info.SystemType.Name == nameof(AudicaWebsocketServerMain))
+            {
+                Version websocketServerVersion = new Version(mod.Info.Version);
+                Version lastSupportedVersion = new Version("1.1.0");
+                return websocketServerVersion.CompareTo(lastSupportedVersion) >= 0;
             }
             return false;
         }
@@ -149,7 +177,7 @@ namespace AudicaModding
             }
             return false;
         }
-        private static bool LookForMatch(string querySongTitle, string matchSongTitle, 
+        private static bool LookForMatch(string querySongTitle, string matchSongTitle,
                                          ref bool foundAny, ref bool foundBetter, ref bool foundExact)
         {
             bool newBestMatch = false;
@@ -162,7 +190,7 @@ namespace AudicaModding
 
             // prefer songs that actually start with the first word of the query
             // over random partial matches (e.g. !asr Bang should find Bang! and not
-            // My New Sneakers Could Never Replace My Multi-Colored Bangalores 
+            // My New Sneakers Could Never Replace My Multi-Colored Bangalores
             if (!foundBetter)
             {
                 if (matchSongTitle.ToLowerInvariant().StartsWith(querySongTitle))
@@ -186,7 +214,7 @@ namespace AudicaModding
         {
             bool addedAny = false;
             MelonLogger.Msg(unprocessedRequests.Count + " in queue.");
-            
+
             if (unprocessedRequests.Count != 0)
             {
                 foreach (RequestData req in unprocessedRequests)
@@ -224,15 +252,20 @@ namespace AudicaModding
                         else
                         {
                             MelonLogger.Msg($"Found no match for \"{req.Query}\"");
+                            if (hasCompatibleWebsocketServer)
+                            {
+                                EmitMessage("SongNotFound", req);
+                            }
+
                         }
                     }
                 }
                 unprocessedRequests.Clear();
             }
-            
+
             if (addedAny && MenuState.GetState() == MenuState.State.SongPage)
                 RequestUI.UpdateFilter();
-            
+
             RequestUI.UpdateButtonText();
         }
         private static void SearchID(QueryData data)
@@ -291,7 +324,7 @@ namespace AudicaModding
                 if (bestMatch != null)
                 {
                     // check if we already have that file downloaded
-                    RequestData       r         = new RequestData($"{bestMatch.title} -artist {bestMatch.artist} -mapper {bestMatch.author}", 
+                    RequestData       r         = new RequestData($"{bestMatch.title} -artist {bestMatch.artist} -mapper {bestMatch.author}",
                                                                   data.RequestedBy, data.RequestedAt);
                     QueryData         matchData = new QueryData(r);
                     SongList.SongData s         = SearchSong(matchData, out bool isExactMatch);
@@ -309,6 +342,10 @@ namespace AudicaModding
                 else
                 {
                     MelonLogger.Msg($"Found no match for \"{data.FullQuery}\"");
+                    if (hasCompatibleWebsocketServer)
+                    {
+                        EmitMessage("SongNotFound", data);
+                    }
                 }
             }
             else
@@ -325,6 +362,10 @@ namespace AudicaModding
                 else
                 {
                     MelonLogger.Msg($"Found no match for \"{data.FullQuery}\"");
+                    if (hasCompatibleWebsocketServer)
+                    {
+                        EmitMessage("SongNotFound", data);
+                    }
                 }
             }
 
@@ -373,6 +414,10 @@ namespace AudicaModding
             }
             if (matchIdx != -1)
             {
+                if (hasCompatibleWebsocketServer)
+                {
+                    EmitMessage("RemoveSongQueueItem", requests.AvailableSongs[matchIdx]);
+                }
                 RemoveRequest(requests.AvailableSongs[matchIdx]);
                 MelonLogger.Msg("Removed \"" + arguments + "\" from available requests");
                 if (MenuState.GetState() == MenuState.State.SongPage)
@@ -395,6 +440,10 @@ namespace AudicaModding
                 }
                 if (matchIdx != -1)
                 {
+                    if (hasCompatibleWebsocketServer)
+                    {
+                        EmitMessage("RemoveSongQueueItem", requests.MissingSongs[matchIdx]);
+                    }
                     RemoveMissing(requests.MissingSongs[matchIdx]);
                     MelonLogger.Msg("Removed \"" + arguments + "\" from missing requests");
                 }
@@ -445,6 +494,10 @@ namespace AudicaModding
                     {
                         MelonLogger.Msg($"Removed {userId}'s latest request {available.Title} from available requests");
                         RemoveRequest(available);
+                        if (hasCompatibleWebsocketServer)
+                        {
+                            EmitMessage("RemoveSongQueueItem", available);
+                        }
 
                         if (MenuState.GetState() == MenuState.State.SongPage)
                         {
@@ -455,6 +508,10 @@ namespace AudicaModding
                     {
                         MelonLogger.Msg($"Removed {userId}'s latest request {missing.Title} from missing requests");
                         RemoveMissing(missing);
+                        if (hasCompatibleWebsocketServer)
+                        {
+                            EmitMessage("RemoveSongQueueItem", missing);
+                        }
                     }
                 }
                 else if (available != null)
@@ -462,6 +519,10 @@ namespace AudicaModding
                     MelonLogger.Msg($"Removed {userId}'s latest request {available.Title} from available requests");
                     RemoveRequest(available);
 
+                    if (hasCompatibleWebsocketServer)
+                    {
+                        EmitMessage("RemoveSongQueueItem", available);
+                    }
                     if (MenuState.GetState() == MenuState.State.SongPage)
                     {
                         RequestUI.UpdateFilter();
@@ -471,6 +532,10 @@ namespace AudicaModding
                 {
                     MelonLogger.Msg($"Removed {userId}'s latest request {missing.Title} from missing requests");
                     RemoveMissing(missing);
+                    if (hasCompatibleWebsocketServer)
+                    {
+                        EmitMessage("RemoveSongQueueItem", missing);
+                    }
                 }
 
                 if (MenuState.GetState() == MenuState.State.SongPage)
@@ -514,11 +579,19 @@ namespace AudicaModding
                          (Config.LetModsChangeQueueStatus && twitchMessage.Mod == "1" || twitchMessage.Broadcaster == "1"))
                 {
                     RequestUI.EnableQueue(true);
+                    if (hasCompatibleWebsocketServer)
+                    {
+                        EmitMessage("QueueEnabled", "");
+                    }
                 }
                 else if (command == "disablequeue" && requestsEnabled == true &&
                          (Config.LetModsChangeQueueStatus && twitchMessage.Mod == "1" || twitchMessage.Broadcaster == "1"))
                 {
                     RequestUI.EnableQueue(false);
+                    if (hasCompatibleWebsocketServer)
+                    {
+                        EmitMessage("QueueDisabled", "");
+                    }
                 }
             }
         }
@@ -601,9 +674,10 @@ namespace AudicaModding
         {
             Request req = new Request();
             req.SongID  = s.songID;
+            req.Title   = s.title; // Cheating a bit so we can emit this object in websocket.
             if (!requests.AvailableSongs.Contains(req))
             {
-                // comparison uses only the SongID, so we can save 
+                // comparison uses only the SongID, so we can save
                 // some time by only adding the rest now
                 req.Title       = s.title;
                 req.Artist      = s.artist;
@@ -612,8 +686,18 @@ namespace AudicaModding
                 req.RequestedAt = requestedAt;
                 requests.AvailableSongs.Add(req);
                 SaveQueue();
+                if (hasCompatibleWebsocketServer)
+                {
+                    EmitMessage("NewSongQueueItem", req);
+                }
+
                 return true;
             }
+            if (hasCompatibleWebsocketServer)
+            {
+                EmitMessage("SongAlreadyInQueue", req);
+            }
+
             return false;
         }
 
@@ -621,9 +705,10 @@ namespace AudicaModding
         {
             MissingRequest req = new MissingRequest();
             req.SongID         = s.song_id;
+            req.Title          = s.title; // Cheating a bit so we can emit this object in websocket.
             if (!requests.MissingSongs.Contains(req))
             {
-                // comparison uses only the SongID, so we can save 
+                // comparison uses only the SongID, so we can save
                 // some time by only adding the rest now
                 req.Title       = s.title;
                 req.Artist      = s.artist;
@@ -634,8 +719,18 @@ namespace AudicaModding
                 req.PreviewURL  = s.preview_url;
                 requests.MissingSongs.Add(req);
                 SaveQueue();
+                if (hasCompatibleWebsocketServer)
+                {
+                    EmitMessage("NewSongQueueItem", req);
+                }
+
                 return true;
             }
+            if (hasCompatibleWebsocketServer)
+            {
+                EmitMessage("SongAlreadyInQueue", req);
+            }
+
             return false;
         }
 
@@ -708,6 +803,16 @@ namespace AudicaModding
                 SaveQueue();
             }
         }
+
+        private static void EmitMessage(string eventType, Object data)
+        {
+            var eventContainer = new EventContainer();
+            eventContainer.eventType = eventType;
+            eventContainer.data = data;
+
+            AudicaWebsocketServerMain.EmitWebsocketEvent(eventContainer);
+        }
+
         #endregion
     }
 
