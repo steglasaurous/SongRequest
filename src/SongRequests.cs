@@ -7,7 +7,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using AudicaWebsocketServer;
 
-[assembly: MelonOptionalDependencies("SongBrowser", "ModSettings", "AudicaWebsocketServer")]
+[assembly: MelonOptionalDependencies("SongBrowser", "ModSettings", "AudicaWebsocketServer", "TwitchConnectorMod")]
 
 namespace AudicaModding
 {
@@ -22,19 +22,18 @@ namespace AudicaModding
             public const string DownloadLink = null; // Download Link for the Mod.  (Set as null if none)
         }
 
-        internal static bool loadComplete             = false;
+        internal static bool loadComplete = false;
         internal static bool hasCompatibleSongBrowser = false;
         internal static bool hasCompatibleWebsocketServer = false;
+        internal static bool hasCompatibleTwitchConnectorMod = false;
 
         internal static bool requestsEnabled = true;
 
         private static List<RequestData> unprocessedRequests = new List<RequestData>();
-        private static RequestQueue      requests            = new RequestQueue();
+        private static RequestQueue requests = new RequestQueue();
 
         private static Dictionary<string, QueryData> webSearchQueryData = new Dictionary<string, QueryData>();
-        private static string                        queuePath          = UnityEngine.Application.dataPath + "/../" + "/UserData/" + "SongRequestQueue.json";
-
-        private static TwitchClient client;
+        private static string queuePath = UnityEngine.Application.dataPath + "/../" + "/UserData/" + "SongRequestQueue.json";
 
         public override void OnApplicationStart()
         {
@@ -46,7 +45,20 @@ namespace AudicaModding
             {
                 MelonLogger.Msg("No compatible version of SongBrowser found. Searching for and downloading of missing songs is disabled.");
             }
-            // FIXME: Add test for websocket server
+
+            if (MelonHandler.Mods.Any(HasCompatibleWebsocketServerMod))
+            {
+                InitWebsocketServerIntegration();
+            }
+            else
+            {
+                MelonLogger.Msg("No compatible version of AudicaWebsocketServer found.  Websocket messages for bot responses disabled.");
+            }
+
+            if (MelonHandler.Mods.Any(HasCompatibleTwitchConnectorMod))
+            {
+                InitTwitchConnectorModIntegration();
+            }
 
             if (MelonHandler.Mods.Any(HasCompatibleWebsocketServerMod))
             {
@@ -63,26 +75,8 @@ namespace AudicaModding
         public override void OnPreferencesSaved()
         {
             Config.OnModSettingsApplied();
-
-            if (client == null)
-            {
-                MelonLogger.Msg("Connecting twitch client");
-                ConnectionCredentials twitchCreds = new ConnectionCredentials(Config.TwitchUsername, Config.TwitchAccessToken);
-                WebSocketClient customClient = new WebSocketClient();
-                client = new TwitchClient(customClient);
-                client.Initialize(twitchCreds, Config.TwitchChannel);
-                client.OnLog += TwitchClientOnLog;
-                client.Connect();
-                MelonLogger.Msg("Connection done");
-            }
-            // FIXME: Continue here: make connection to twitch if access token is present in preferences.
-            // If not present, spit out a console message noting the integration is one-way only. 
         }
 
-        private void TwitchClientOnLog(object sender, OnLogArgs e)
-        {
-            MelonLogger.Msg($"{e.DateTime.ToString()}: {e.BotUsername} - {e.Data}");
-        }
         public static int GetActiveWebSearchCount()
         {
             return webSearchQueryData.Count;
@@ -106,11 +100,23 @@ namespace AudicaModding
             MelonLogger.Msg("Websocket Server is installed. Enabling websocket messages for bot requests.");
         }
 
+        private void InitTwitchConnectorModIntegration()
+        {
+            hasCompatibleTwitchConnectorMod = true;
+            TwitchConnectorMod.TwitchConnectorMod.AddChatMsgReceivedEventHandler(OnChatMessage);
+            MelonLogger.Msg("TwitchConnectorMod is installed.  Twitch commands and responses enabled.");
+        }
+
+        void OnChatMessage(Object sender, TwitchConnectorMod.TwitchIRC.MessageEventArgs eventArgs)
+        {
+            ParseCommand(new ParsedTwitchMessage(eventArgs.rawMessage));
+        }
+
         private bool HasCompatibleSongBrowser(MelonMod mod)
         {
             if (mod.Info.SystemType.Name == nameof(SongBrowser))
             {
-                Version browserVersion       = new Version(mod.Info.Version);
+                Version browserVersion = new Version(mod.Info.Version);
                 Version lastSupportedVersion = new Version("3.0.8");
                 return browserVersion.CompareTo(lastSupportedVersion) >= 0;
             }
@@ -124,6 +130,17 @@ namespace AudicaModding
                 Version websocketServerVersion = new Version(mod.Info.Version);
                 Version lastSupportedVersion = new Version("1.1.0");
                 return websocketServerVersion.CompareTo(lastSupportedVersion) >= 0;
+            }
+            return false;
+        }
+
+        private bool HasCompatibleTwitchConnectorMod(MelonMod mod)
+        {
+            if (mod.Info.SystemType.Name == nameof(TwitchConnectorMod))
+            {
+                Version twitchConnectorVersion = new Version(mod.Info.Version);
+                Version lastSupportedVersion = new Version("0.1.0");
+                return twitchConnectorVersion.CompareTo(lastSupportedVersion) >= 0;
             }
             return false;
         }
@@ -147,10 +164,10 @@ namespace AudicaModding
 
         private static SongList.SongData SearchSong(QueryData data, out bool foundExactMatch)
         {
-            SongList.SongData song        = null;
-            bool              foundAny    = false;
-            bool              foundBetter = false;
-            foundExactMatch               = false;
+            SongList.SongData song = null;
+            bool foundAny = false;
+            bool foundBetter = false;
+            foundExactMatch = false;
 
             for (int i = 0; i < SongList.I.songs.Count; i++)
             {
@@ -205,8 +222,8 @@ namespace AudicaModding
             // keep first partial match as result unless we find an exact match
             if (!foundAny)
             {
-                foundAny      = true;
-                newBestMatch  = true;
+                foundAny = true;
+                newBestMatch = true;
             }
 
             // prefer songs that actually start with the first word of the query
@@ -216,7 +233,7 @@ namespace AudicaModding
             {
                 if (matchSongTitle.ToLowerInvariant().StartsWith(querySongTitle))
                 {
-                    foundBetter  = true;
+                    foundBetter = true;
                     newBestMatch = true;
                 }
             }
@@ -224,7 +241,7 @@ namespace AudicaModding
             // exact matches are best
             if (matchSongTitle.ToLowerInvariant().Trim().Equals(querySongTitle))
             {
-                foundExact   = true;
+                foundExact = true;
                 newBestMatch = true;
             }
 
@@ -240,7 +257,7 @@ namespace AudicaModding
             {
                 foreach (RequestData req in unprocessedRequests)
                 {
-                    QueryData         data   = new QueryData(req);
+                    QueryData data = new QueryData(req);
 
                     if (data.MaudicaID != null)
                     {
@@ -273,12 +290,7 @@ namespace AudicaModding
                         else
                         {
                             MelonLogger.Msg($"Found no match for \"{req.Query}\"");
-
-                            EventContainer eventContainer = new EventContainer();
-                            eventContainer.eventType = "SongNotFound";
-                            eventContainer.data = req; // FIXME: Emit structure that matches what websocket already has, for consistency.
-
-                            AudicaWebsocketServerMain.EmitWebsocketEvent(eventContainer);
+                            EmitMessage("SongNotFound", req, req.Query);
                         }
                     }
                 }
@@ -346,10 +358,10 @@ namespace AudicaModding
                 if (bestMatch != null)
                 {
                     // check if we already have that file downloaded
-                    RequestData       r         = new RequestData($"{bestMatch.title} -artist {bestMatch.artist} -mapper {bestMatch.author}",
+                    RequestData r = new RequestData($"{bestMatch.title} -artist {bestMatch.artist} -mapper {bestMatch.author}",
                                                                   data.RequestedBy, data.RequestedAt);
-                    QueryData         matchData = new QueryData(r);
-                    SongList.SongData s         = SearchSong(matchData, out bool isExactMatch);
+                    QueryData matchData = new QueryData(r);
+                    SongList.SongData s = SearchSong(matchData, out bool isExactMatch);
                     if (isExactMatch)
                     {
                         MelonLogger.Msg("Result: " + s.songID);
@@ -364,12 +376,7 @@ namespace AudicaModding
                 else
                 {
                     MelonLogger.Msg($"Found no match for \"{data.FullQuery}\"");
-                    
-                    EventContainer eventContainer = new EventContainer();
-                    eventContainer.eventType = "SongNotFound";
-                    eventContainer.data = data; // FIXME: Emit structure that matches what websocket already has, for consistency.
-
-                    AudicaWebsocketServerMain.EmitWebsocketEvent(eventContainer);
+                    EmitMessage("SongNotFound", data, data.FullQuery);
                 }
             }
             else
@@ -386,12 +393,7 @@ namespace AudicaModding
                 else
                 {
                     MelonLogger.Msg($"Found no match for \"{data.FullQuery}\"");
-
-                    EventContainer eventContainer = new EventContainer();
-                    eventContainer.eventType = "SongNotFound";
-                    eventContainer.data = data; // FIXME: Emit structure that matches what websocket already has, for consistency.
-
-                    AudicaWebsocketServerMain.EmitWebsocketEvent(eventContainer);
+                    EmitMessage("SongNotFound", data, data.FullQuery);
                 }
             }
 
@@ -424,7 +426,7 @@ namespace AudicaModding
             bool foundAny        = false;
             bool foundBetter     = false;
             bool foundExactMatch = false;
-            int  matchIdx        = -1;
+            int matchIdx         = -1;
 
             // check available songs
             for (int i = 0; i < requests.AvailableSongs.Count; i++)
@@ -440,17 +442,9 @@ namespace AudicaModding
             }
             if (matchIdx != -1)
             {
-                
-                
-                EventContainer eventContainer = new EventContainer();
-                eventContainer.eventType = "RemoveSongQueueItem";
-                eventContainer.data = requests.AvailableSongs[matchIdx]; // FIXME: Emit structure that matches what websocket already has, for consistency.
-
-                AudicaWebsocketServerMain.EmitWebsocketEvent(eventContainer);
-
+                EmitMessage("RemoveSongQueueItem", requests.AvailableSongs[matchIdx], requests.AvailableSongs[matchIdx].Title);
                 RemoveRequest(requests.AvailableSongs[matchIdx]);
                 MelonLogger.Msg("Removed \"" + arguments + "\" from available requests");
-
                 if (MenuState.GetState() == MenuState.State.SongPage)
                 {
                     RequestUI.UpdateFilter();
@@ -471,12 +465,7 @@ namespace AudicaModding
                 }
                 if (matchIdx != -1)
                 {                 
-                    EventContainer eventContainer = new EventContainer();
-                    eventContainer.eventType = "RemoveSongQueueItem";
-                    eventContainer.data = requests.MissingSongs[matchIdx]; // FIXME: Emit structure that matches what websocket already has, for consistency.
-
-                    AudicaWebsocketServerMain.EmitWebsocketEvent(eventContainer);
-
+                    EmitMessage("RemoveSongQueueItem", requests.MissingSongs[matchIdx], requests.MissingSongs[matchIdx].Title);
                     RemoveMissing(requests.MissingSongs[matchIdx]);
                     MelonLogger.Msg("Removed \"" + arguments + "\" from missing requests");
                 }
@@ -490,7 +479,7 @@ namespace AudicaModding
         public static void ProcessOops(string userId)
         {
             int availableMatchIdx = -1;
-            int missingMatchIdx   = -1;
+            int missingMatchIdx = -1;
 
             // check available songs
             for (int i = requests.AvailableSongs.Count - 1; i >= 0; i--)
@@ -518,8 +507,8 @@ namespace AudicaModding
             if (availableMatchIdx != -1 || missingMatchIdx != -1)
             {
                 // we need the latest request
-                Request        available = (availableMatchIdx == -1 ? null : requests.AvailableSongs[availableMatchIdx]);
-                MissingRequest missing   = (missingMatchIdx   == -1 ? null : requests.MissingSongs[missingMatchIdx]);
+                Request available = (availableMatchIdx == -1 ? null : requests.AvailableSongs[availableMatchIdx]);
+                MissingRequest missing = (missingMatchIdx == -1 ? null : requests.MissingSongs[missingMatchIdx]);
 
                 if (available != null && missing != null)
                 {
@@ -527,12 +516,7 @@ namespace AudicaModding
                     {
                         MelonLogger.Msg($"Removed {userId}'s latest request {available.Title} from available requests");
                         RemoveRequest(available);
-                        
-                        EventContainer eventContainer = new EventContainer();
-                        eventContainer.eventType = "RemoveSongQueueItem";
-                        eventContainer.data = available; // FIXME: Emit structure that matches what websocket already has, for consistency.
-
-                        AudicaWebsocketServerMain.EmitWebsocketEvent(eventContainer);
+                        EmitMessage("RemoveSongQueueItem", available, available.Title);
 
                         if (MenuState.GetState() == MenuState.State.SongPage)
                         {
@@ -543,13 +527,7 @@ namespace AudicaModding
                     {
                         MelonLogger.Msg($"Removed {userId}'s latest request {missing.Title} from missing requests");
                         RemoveMissing(missing);
-            
-                        EventContainer eventContainer = new EventContainer();
-                        eventContainer.eventType = "RemoveSongQueueItem";
-                        eventContainer.data = missing; // FIXME: Emit structure that matches what websocket already has, for consistency.
-
-                        AudicaWebsocketServerMain.EmitWebsocketEvent(eventContainer);
-
+                        EmitMessage("RemoveSongQueueItem", missing, missing.Title);
                     }
                 }
                 else if (available != null)
@@ -557,13 +535,7 @@ namespace AudicaModding
                     MelonLogger.Msg($"Removed {userId}'s latest request {available.Title} from available requests");
                     RemoveRequest(available);
 
-
-                    EventContainer eventContainer = new EventContainer();
-                    eventContainer.eventType = "RemoveSongQueueItem";
-                    eventContainer.data = available; // FIXME: Emit structure that matches what websocket already has, for consistency.
-
-                    AudicaWebsocketServerMain.EmitWebsocketEvent(eventContainer);
-
+                    EmitMessage("RemoveSongQueueItem", available, available.Title);
                     if (MenuState.GetState() == MenuState.State.SongPage)
                     {
                         RequestUI.UpdateFilter();
@@ -573,12 +545,7 @@ namespace AudicaModding
                 {
                     MelonLogger.Msg($"Removed {userId}'s latest request {missing.Title} from missing requests");
                     RemoveMissing(missing);
-
-                    EventContainer eventContainer = new EventContainer();
-                    eventContainer.eventType = "RemoveSongQueueItem";
-                    eventContainer.data = missing; // FIXME: Emit structure that matches what websocket already has, for consistency.
-
-                    AudicaWebsocketServerMain.EmitWebsocketEvent(eventContainer);
+                    EmitMessage("RemoveSongQueueItem", missing, missing.Title);
                 }
 
                 if (MenuState.GetState() == MenuState.State.SongPage)
@@ -593,9 +560,9 @@ namespace AudicaModding
             string msg = twitchMessage.Message;
             if (msg.Length > 2 && msg.Substring(0, 1) == "!") // length has to be at least 2: ! and at least one command letter
             {
-                string command   = msg.Replace("!", "").Split(" ".ToCharArray())[0];
+                string command = msg.Replace("!", "").Split(" ".ToCharArray())[0];
                 string arguments = msg.Replace("!" + command + " ", "");
-                command          = command.ToLower();
+                command = command.ToLower();
 
                 if (command == "asr" && (requestsEnabled || twitchMessage.Mod == "1" && Config.LetModsIgnoreQueueStatus || twitchMessage.Broadcaster == "1"))
                 {
@@ -622,23 +589,13 @@ namespace AudicaModding
                          (Config.LetModsChangeQueueStatus && twitchMessage.Mod == "1" || twitchMessage.Broadcaster == "1"))
                 {
                     RequestUI.EnableQueue(true);
-
-                    EventContainer eventContainer = new EventContainer();
-                    eventContainer.eventType = "QueueEnabled";
-                    eventContainer.data = "";
-
-                    AudicaWebsocketServerMain.EmitWebsocketEvent(eventContainer);
+                    EmitMessage("QueueEnabled", "");
                 }
                 else if (command == "disablequeue" && requestsEnabled == true &&
                          (Config.LetModsChangeQueueStatus && twitchMessage.Mod == "1" || twitchMessage.Broadcaster == "1"))
                 {
                     RequestUI.EnableQueue(false);
-
-                    EventContainer eventContainer = new EventContainer();
-                    eventContainer.eventType = "QueueDisabled";
-                    eventContainer.data = "";
-
-                    AudicaWebsocketServerMain.EmitWebsocketEvent(eventContainer);
+                    EmitMessage("QueueDisabled", "");
                 }
             }
         }
@@ -647,13 +604,13 @@ namespace AudicaModding
         {
             public RequestData(string query, string requestedBy, DateTime timeOfRequest)
             {
-                Query         = query;
-                RequestedBy   = requestedBy;
+                Query = query;
+                RequestedBy = requestedBy;
                 TimeOfRequest = timeOfRequest;
             }
 
-            public string   Query;
-            public string   RequestedBy;
+            public string Query;
+            public string RequestedBy;
             public DateTime TimeOfRequest;
         }
 
@@ -663,37 +620,37 @@ namespace AudicaModding
             {
                 string queryInvariant = req.Query.ToLowerInvariant();
 
-                Artist    = null;
-                Mapper    = null;
+                Artist = null;
+                Mapper = null;
                 MaudicaID = null;
                 FullQuery = queryInvariant;
 
                 string modifiedQuery = queryInvariant + "-endQuery";
                 // if an ID is used, it should be possible to convert to int, otherwise it's likely a normal song title
-                if (queryInvariant.Contains("-id ")  &&  int.TryParse(queryInvariant.Replace("-id", "").Trim(), out _))
+                if (queryInvariant.Contains("-id ") && int.TryParse(queryInvariant.Replace("-id", "").Trim(), out _))
                 {
                     // match everything from -id to the next occurrence of a relevant tag
-                    Match m        = Regex.Match(modifiedQuery, "-id.*?(?=-mapper|-artist|-endQuery)");
-                    MaudicaID      = m.Value.Replace("-id", "").Trim();
-                    MaudicaID      = MaudicaID.Replace(" ", "");
+                    Match m = Regex.Match(modifiedQuery, "-id.*?(?=-mapper|-artist|-endQuery)");
+                    MaudicaID = m.Value.Replace("-id", "").Trim();
+                    MaudicaID = MaudicaID.Replace(" ", "");
                 }
                 else
                 {
                     if (queryInvariant.Contains("-artist "))
                     {
                         // match everything from -artist to the next occurrence of -mapper or -endQuery
-                        Match m        = Regex.Match(modifiedQuery, "-artist.*?(?=-mapper|-endQuery)");
+                        Match m = Regex.Match(modifiedQuery, "-artist.*?(?=-mapper|-endQuery)");
                         queryInvariant = queryInvariant.Replace(m.Value, ""); // remove artist part from song title
-                        Artist         = m.Value.Replace("-artist", "").Trim();
-                        Artist         = Artist.Replace(" ", "");
+                        Artist = m.Value.Replace("-artist", "").Trim();
+                        Artist = Artist.Replace(" ", "");
                     }
                     if (queryInvariant.Contains("-mapper "))
                     {
                         // match everything from -mapper to the next occurrence of -artist or -endQuery
-                        Match m        = Regex.Match(modifiedQuery, "-mapper.*?(?=-artist|-endQuery)");
+                        Match m = Regex.Match(modifiedQuery, "-mapper.*?(?=-artist|-endQuery)");
                         queryInvariant = queryInvariant.Replace(m.Value, ""); // remove mapper part from song title
-                        Mapper         = m.Value.Replace("-mapper", "").Trim();
-                        Mapper         = Mapper.Replace(" ", "");
+                        Mapper = m.Value.Replace("-mapper", "").Trim();
+                        Mapper = Mapper.Replace(" ", "");
                     }
                     Title = queryInvariant.Trim();
                 }
@@ -701,13 +658,13 @@ namespace AudicaModding
                 RequestedAt = req.TimeOfRequest;
             }
 
-            public string   Title { get; private set; }
-            public string   Artist { get; private set; }
-            public string   Mapper { get; private set; }
-            public string   MaudicaID { get; private set; }
-            public string   RequestedBy { get; private set; }
+            public string Title { get; private set; }
+            public string Artist { get; private set; }
+            public string Mapper { get; private set; }
+            public string MaudicaID { get; private set; }
+            public string RequestedBy { get; private set; }
             public DateTime RequestedAt { get; private set; }
-            public string   FullQuery { get; private set; }
+            public string FullQuery { get; private set; }
         }
 
         #region Queue
@@ -720,84 +677,59 @@ namespace AudicaModding
         internal static bool AddRequest(SongList.SongData s, string requestedBy, DateTime requestedAt)
         {
             Request req = new Request();
-            req.SongID  = s.songID;
-            req.Title       = s.title; // Cheating a bit so we can emit this object in websocket.
-            EventContainer eventContainer = new EventContainer();
-
+            req.SongID = s.songID;
+            req.Title = s.title; // Cheating a bit so we can emit this object in websocket.
             if (!requests.AvailableSongs.Contains(req))
             {
                 // comparison uses only the SongID, so we can save
                 // some time by only adding the rest now
-                req.Title       = s.title;
-                req.Artist      = s.artist;
-                req.Mapper      = s.author;
+                req.Title = s.title;
+                req.Artist = s.artist;
+                req.Mapper = s.author;
                 req.RequestedBy = requestedBy;
                 req.RequestedAt = requestedAt;
                 requests.AvailableSongs.Add(req);
                 SaveQueue();
+                EmitMessage("NewSongQueueItem", req, req.Title, req.Artist, req.Mapper);
                 
-                eventContainer.eventType = "NewSongQueueItem";
-                eventContainer.data = req; // FIXME: Emit structure that matches what websocket already has, for consistency.
-
-                AudicaWebsocketServerMain.EmitWebsocketEvent(eventContainer);
-
-                // Send response via Twitch client.
-                client.SendMessage(client.GetJoinedChannel(Config.TwitchChannel), req.Title + " by " + req.Artist + " (" + req.Mapper + ") added to the queue.");
-
                 return true;
             }
             
-            eventContainer.eventType = "SongAlreadyInQueue";
-            eventContainer.data = req; // FIXME: Emit structure that matches what websocket already has, for consistency.
-
-            AudicaWebsocketServerMain.EmitWebsocketEvent(eventContainer);
-
+            EmitMessage("SongAlreadyInQueue", req, req.Title);
+            
             return false;
         }
 
         internal static bool AddMissing(Song s, string requestedBy, DateTime requestedAt)
         {
             MissingRequest req = new MissingRequest();
-            req.SongID         = s.song_id;
-            req.Title       = s.title; // Cheating a bit so we can emit this object in websocket.
-            EventContainer eventContainer = new EventContainer();
-
+            req.SongID = s.song_id;
+            req.Title = s.title; // Cheating a bit so we can emit this object in websocket.
             if (!requests.MissingSongs.Contains(req))
             {
                 // comparison uses only the SongID, so we can save
                 // some time by only adding the rest now
-                req.Title       = s.title;
-                req.Artist      = s.artist;
-                req.Mapper      = s.author;
+                req.Title = s.title;
+                req.Artist = s.artist;
+                req.Mapper = s.author;
                 req.RequestedBy = requestedBy;
                 req.RequestedAt = requestedAt;
                 req.DownloadURL = s.download_url;
-                req.PreviewURL  = s.preview_url;
+                req.PreviewURL = s.preview_url;
                 requests.MissingSongs.Add(req);
                 SaveQueue();
-                
-                eventContainer.eventType = "NewSongQueueItem";
-                eventContainer.data = req; // FIXME: Emit structure that matches what websocket already has, for consistency.
-
-                AudicaWebsocketServerMain.EmitWebsocketEvent(eventContainer);
-
-                // Send response via Twitch client.
-                client.SendMessage(client.GetJoinedChannel(Config.TwitchChannel), req.Title + " by " + req.Artist + " (" + req.Mapper + ") added to the queue.");
+                EmitMessage("NewSongQueueItem", req, req.Title, req.Artist, req.Mapper);                
                 return true;
             }
-
-            eventContainer.eventType = "SongAlreadyInQueue";
-            eventContainer.data = req; // FIXME: Emit structure that matches what websocket already has, for consistency.
-
-            AudicaWebsocketServerMain.EmitWebsocketEvent(eventContainer);
-
+            EmitMessage("SongAlreadyInQueue", req, req.Title, req.Artist, req.Mapper);
+            
             return false;
         }
 
         internal static void RemoveRequest(string songID)
         {
             Request remove = new Request();
-            remove.SongID  = songID;
+            remove.SongID = songID;
             RemoveRequest(remove);
         }
         internal static void RemoveRequest(Request req)
@@ -835,7 +767,7 @@ namespace AudicaModding
                 try
                 {
                     string text = File.ReadAllText(queuePath);
-                    requests    = JSON.Load(text).Make<RequestQueue>();
+                    requests = JSON.Load(text).Make<RequestQueue>();
 
                     // get rid of any requests that had their map deleted
                     // if the user deleted a requested map that request
@@ -864,13 +796,48 @@ namespace AudicaModding
             }
         }
 
-        private static void EmitMessage(string eventType, Object data)
+        private static void EmitMessage(string eventType, object data, string title = "", string artist = "", string mapper = "")
         {
-            var eventContainer = new EventContainer();
-            eventContainer.eventType = eventType;
-            eventContainer.data = data;
+            if (hasCompatibleWebsocketServer)
+            {
+                var eventContainer = new EventContainer();
+                eventContainer.eventType = eventType;
+                eventContainer.data = data;
 
-            AudicaWebsocketServerMain.EmitWebsocketEvent(eventContainer);
+                AudicaWebsocketServerMain.EmitWebsocketEvent(eventContainer);
+            }
+
+            if (hasCompatibleTwitchConnectorMod)
+            {
+                string message;
+
+                switch (eventType)
+                {
+                    case "RemoveSongQueueItem":
+                        message = $"'{title}' removed from the queue.";
+                        break;
+                    case "QueueEnabled":
+                        message = $"Request queue enabled.";
+                        break;
+                    case "QueueDisabled":
+                        message = $"Request queue disabled.";
+                        break;
+                    case "NewSongQueueItem":
+                        message = $"'{title}' by {artist} ({mapper}) added to the queue.";
+                        break;
+                    case "SongAlreadyInQueue":
+                        message = $"'{title}' is already in the queue.";
+                        break;
+                    case "SongNotFound":
+                        message = $"'{title}' not found.";
+                        break;
+                    default:
+                        message = eventType;
+                        break;
+                }
+
+                TwitchConnectorMod.TwitchConnectorMod.SendMessage(message);
+            }
         }
 
         #endregion
@@ -879,18 +846,18 @@ namespace AudicaModding
     [Serializable]
     public class RequestQueue
     {
-        public List<MissingRequest> MissingSongs   = new List<MissingRequest>();
-        public List<Request>        AvailableSongs = new List<Request>();
+        public List<MissingRequest> MissingSongs = new List<MissingRequest>();
+        public List<Request> AvailableSongs = new List<Request>();
     }
 
     [Serializable]
     public class Request : IEquatable<Request>
     {
-        public string   SongID;
-        public string   Title;
-        public string   Artist;
-        public string   Mapper;
-        public string   RequestedBy;
+        public string SongID;
+        public string Title;
+        public string Artist;
+        public string Mapper;
+        public string RequestedBy;
         public DateTime RequestedAt;
 
         public override bool Equals(object obj)
@@ -933,9 +900,48 @@ namespace AudicaModding
         public SongInfo(Request req)
         {
             SongID = req.SongID;
-            Title = req.Title;
+            Title  = req.Title;
             Artist = req.Artist;
             Mapper = req.Mapper;
+        }
+    }
+
+
+    internal class MessageType
+    {
+        public enum MessageTypes
+        {
+            SongNotFound
+        }
+
+        public MessageTypes type;
+        public string messageTemplate;
+        
+        public MessageType(MessageTypes newType, string newMessageTemplate)
+        {
+            this.type = newType;
+            this.messageTemplate = newMessageTemplate;
+        }
+    }
+
+    internal class Messages
+    {
+
+        Dictionary<MessageType.MessageTypes, MessageType> messages = new Dictionary<MessageType.MessageTypes, MessageType>();
+
+        public Messages()
+        {
+            messages.Add(MessageType.MessageTypes.SongNotFound, new MessageType(MessageType.MessageTypes.SongNotFound, "Song %title% not found"));
+        }
+
+        public string GetMessage(MessageType.MessageTypes messageType, Object data)
+        {
+            if (messages.ContainsKey(messageType))
+            {
+                return messages[messageType].messageTemplate;
+            }
+
+            return "";
         }
     }
 }
