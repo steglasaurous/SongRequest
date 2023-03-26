@@ -107,9 +107,11 @@ namespace AudicaModding
             MelonLogger.Msg("TwitchConnectorMod is installed.  Twitch commands and responses enabled.");
         }
 
-        void OnChatMessage(Object sender, TwitchConnectorMod.TwitchIRC.MessageEventArgs eventArgs)
+        void OnChatMessage(Object sender, TwitchConnectorMod.ParsedTwitchMessage eventArgs)
         {
-            ParseCommand(new ParsedTwitchMessage(eventArgs.rawMessage));
+            // Technically this is arriving as a very similar object, however to avoid putting a hard dependency on TwitchConnectorMod,
+            // we parse the message here too.
+            ParseCommand(new ParsedTwitchMessage(eventArgs.RawMessage));
         }
 
         private bool HasCompatibleSongBrowser(MelonMod mod)
@@ -558,6 +560,7 @@ namespace AudicaModding
         public static void ParseCommand(ParsedTwitchMessage twitchMessage)
         {
             string msg = twitchMessage.Message;
+
             if (msg.Length > 2 && msg.Substring(0, 1) == "!") // length has to be at least 2: ! and at least one command letter
             {
                 string command   = msg.Replace("!", "").Split(" ".ToCharArray())[0];
