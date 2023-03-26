@@ -32,6 +32,16 @@ Note that search is not case sensitive, so `!asr Monster` and `!asr MONSTER` giv
 They can also requests songs with **!asr** even when the queue is closed and open/close the queue using **!enableQueue** or **!disable Queue**, respectively.
 If the ModSettings mod is installed, the special mod privileges can be individually en-/disabled in the settings. They are enabled by default.
 
+## TwitchConnectorMod Integration
+
+In Feb 2023, Audica released a slight update to the game that unfortunately broke Twitch integration with this mod.  To mitigate this, the TwitchConnectorMod exists to manage a separate connection to Twitch, and enables 2-way communication with chat.  
+
+If this mod is installed and configured, SongRequest will automatically listen for commands through this mod and push command responses back to chat.
+
+See the [TwitchConnectorMod repo](https://github.com/steglasaurous/twitch-connector-mod) for instructions on how to install and setup this mod.  
+
+
+
 ## AudicaWebsocketServer Integration
 
 Optionally, if the AudicaWebsocketServer mod is installed at v1.1.0 or higher, bot responses will be emitted as 

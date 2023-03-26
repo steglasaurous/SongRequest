@@ -108,6 +108,10 @@
       <HintPath>lib\TwitchChatter.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="TwitchConnectorMod">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>lib\TwitchConnectorMod.dll</HintPath>
+    </Reference>
     <Reference Include="UnhollowerBaseLib">
       <HintPath>lib\UnhollowerBaseLib.dll</HintPath>
       <Private>False</Private>
