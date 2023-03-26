@@ -109,7 +109,8 @@
       <Private>False</Private>
     </Reference>
     <Reference Include="TwitchConnectorMod">
-      <HintPath>libs\TwitchConnectorMod.dll</HintPath>
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>lib\TwitchConnectorMod.dll</HintPath>
     </Reference>
     <Reference Include="UnhollowerBaseLib">
       <HintPath>lib\UnhollowerBaseLib.dll</HintPath>
