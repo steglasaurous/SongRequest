@@ -58,6 +58,9 @@ namespace AudicaModding
             if (MelonHandler.Mods.Any(HasCompatibleTwitchConnectorMod))
             {
                 InitTwitchConnectorModIntegration();
+            } else
+            {
+                MelonLogger.Msg("No compatible version of TwitchConnectorMod found.  Twitch integration will not be available for bot commands (like !asr)");
             }
 
             if (MelonHandler.Mods.Any(HasCompatibleWebsocketServerMod))
