@@ -19,7 +19,7 @@ namespace AudicaModding
                     {
                         if (msg.Contains("tmi.twitch.tv PRIVMSG "))
                         {
-                            SongRequests.ParseCommand(new ParsedTwitchMessage(msg));
+                            SongRequests.ProcessBuiltinTwitchMessage(msg);
                         }
                     }
                 }
