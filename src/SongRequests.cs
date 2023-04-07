@@ -694,14 +694,17 @@ namespace AudicaModding
                     {
                         if(s.songID.Contains(entry))
                         {
-                            shouldEmitMessage = false;
-                            downloadNameCache.Remove(req.SongID);
+                            shouldEmitMessage = false;                           
                         }
                     }
 
                     if (shouldEmitMessage)
                     {
                         EmitMessage("NewSongQueueItem", req);}
+                    }
+                    else
+                    {
+                        downloadNameCache.Remove(req.SongID);
                     }
 
                 return true;
