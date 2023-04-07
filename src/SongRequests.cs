@@ -806,11 +806,7 @@ namespace AudicaModding
         {
             if (hasCompatibleWebsocketServer)
             {
-                var eventContainer = new EventContainer();
-                eventContainer.eventType = eventType;
-                eventContainer.data = data;
-
-                AudicaWebsocketServerMain.EmitWebsocketEvent(eventContainer);
+                SendWebsocketMessage(eventType, data);
             }
 
             if (hasCompatibleTwitchConnectorMod)
@@ -842,10 +838,23 @@ namespace AudicaModding
                         break;
                 }
 
-                TwitchConnectorMod.TwitchConnectorMod.SendMessage(message);
+                SendTwitchMessage(message);
             }
         }
 
+        private static void SendWebsocketMessage(string eventType, object data)
+        {
+            var eventContainer = new EventContainer();
+            eventContainer.eventType = eventType;
+            eventContainer.data = data;
+
+            AudicaWebsocketServerMain.EmitWebsocketEvent(eventContainer);
+        }
+
+        private static void SendTwitchMessage(string message)
+        {
+            TwitchConnectorMod.TwitchConnectorMod.SendMessage(message);
+        }
         #endregion
     }
 
