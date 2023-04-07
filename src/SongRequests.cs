@@ -688,8 +688,21 @@ namespace AudicaModding
                 SaveQueue();
                 if (hasCompatibleWebsocketServer)
                 {
-                    EmitMessage("NewSongQueueItem", req);
-                }
+                    bool shouldEmitMessage = true;
+                
+                    foreach(var entry in downloadNameCache)
+                    {
+                        if(s.songID.Contains(entry))
+                        {
+                            shouldEmitMessage = false;
+                            downloadNameCache.Remove(req.SongID);
+                        }
+                    }
+
+                    if (shouldEmitMessage)
+                    {
+                        EmitMessage("NewSongQueueItem", req);}
+                    }
 
                 return true;
             }
@@ -700,6 +713,8 @@ namespace AudicaModding
 
             return false;
         }
+        
+        private static List<string> downloadNameCache = new List<string>();
 
         internal static bool AddMissing(Song s, string requestedBy, DateTime requestedAt)
         {
@@ -722,6 +737,7 @@ namespace AudicaModding
                 if (hasCompatibleWebsocketServer)
                 {
                     EmitMessage("NewSongQueueItem", req);
+                    downloadNameCache.Add(s.song_id);
                 }
 
                 return true;
