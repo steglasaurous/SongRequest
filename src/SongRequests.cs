@@ -708,8 +708,26 @@ namespace AudicaModding
                 req.RequestedAt = requestedAt;
                 requests.AvailableSongs.Add(req);
                 SaveQueue();
-                EmitMessage("NewSongQueueItem", req, req.Title, req.Artist, req.Mapper);
-                
+
+                bool shouldEmitMessage = true;
+
+                foreach(var entry in downloadNameCache)
+                {
+                    if(s.songID.Contains(entry))
+                    {
+                        shouldEmitMessage = false;                           
+                    }
+                }
+
+                if (shouldEmitMessage)
+                {
+                    EmitMessage("NewSongQueueItem", req, req.Title, req.Artist, req.Mapper);
+                }
+                else
+                {
+                    downloadNameCache.Remove(req.SongID);
+                }
+
                 return true;
             }
             
@@ -717,6 +735,8 @@ namespace AudicaModding
             
             return false;
         }
+        
+        private static List<string> downloadNameCache = new List<string>();
 
         internal static bool AddMissing(Song s, string requestedBy, DateTime requestedAt)
         {
@@ -736,7 +756,10 @@ namespace AudicaModding
                 req.PreviewURL  = s.preview_url;
                 requests.MissingSongs.Add(req);
                 SaveQueue();
+
                 EmitMessage("NewSongQueueItem", req, req.Title, req.Artist, req.Mapper);                
+                downloadNameCache.Add(s.song_id);
+
                 return true;
             }
             EmitMessage("SongAlreadyInQueue", req, req.Title, req.Artist, req.Mapper);
