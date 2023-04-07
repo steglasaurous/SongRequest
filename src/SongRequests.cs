@@ -117,6 +117,18 @@ namespace AudicaModding
             ParseCommand(new ParsedTwitchMessage(eventArgs.RawMessage));
         }
 
+        internal static void ProcessBuiltinTwitchMessage(string msg)
+        {
+            if (hasCompatibleTwitchConnectorMod)
+            {
+                // If the twitch connector mod is enabled and the Audica built-in twitch is functional, ignore messages
+                // from it so we don't double-up on messages to process.  
+                return;
+            }
+
+            SongRequests.ParseCommand(new ParsedTwitchMessage(msg));
+        }
+
         private bool HasCompatibleSongBrowser(MelonMod mod)
         {
             if (mod.Info.SystemType.Name == nameof(SongBrowser))
